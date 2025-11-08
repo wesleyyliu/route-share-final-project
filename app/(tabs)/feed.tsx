@@ -16,7 +16,7 @@ interface Post {
   username: string;
   content: string;
   timestamp: string;
-  videoUri?: string;
+  videoUri?: number;
 }
 
 export default function FeedScreen() {
@@ -26,14 +26,14 @@ export default function FeedScreen() {
       username: 'alex_climber',
       content: 'Just sent my first V5! 🎉',
       timestamp: '2 hours ago',
-      videoUri: 'replace',
+      videoUri: require('@/assets/videos/post1.mp4'),
     },
     {
       id: '2',
       username: 'sarah_boulder',
       content: 'Working on crimps at the gym today!',
       timestamp: '5 hours ago',
-      videoUri: 'replace',
+      videoUri: require('@/assets/videos/post2.mov'),
     },
     {
       id: '3',
@@ -43,7 +43,7 @@ export default function FeedScreen() {
     },
   ]);
   const [newPost, setNewPost] = useState('');
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
   const [currentUsername, setCurrentUsername] = useState('you');
 
   const pickVideo = async () => {
@@ -62,7 +62,7 @@ export default function FeedScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setSelectedVideo(result.assets[0].uri);
+      setSelectedVideo(result.assets[0].uri as any);
     }
   };
 
@@ -130,7 +130,7 @@ export default function FeedScreen() {
             
             {post.videoUri && (
               <Video
-                source={{ uri: post.videoUri }}
+                source={post.videoUri}
                 style={styles.video}
                 useNativeControls
                 resizeMode={ResizeMode.CONTAIN}
