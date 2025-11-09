@@ -32,3 +32,6 @@ To reach the results shown in the evidence clippings, run the commands above, an
 # AI Attribution
 
 We used AI to learn more about extracting video frame information and generating basic starter code in upload.tsx.
+
+Mentor: Nicholas Cirillo
+Date Met with Mentor: 11/2 (we couldn’t find a time for all of us to meet by 10/31)
