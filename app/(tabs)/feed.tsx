@@ -16,7 +16,7 @@ interface Post {
   username: string;
   content: string;
   timestamp: string;
-  videoUri?: number;
+  videoUri?: number | string;
 }
 
 export default function FeedScreen() {
@@ -43,7 +43,7 @@ export default function FeedScreen() {
     },
   ]);
   const [newPost, setNewPost] = useState('');
-  const [selectedVideo, setSelectedVideo] = useState<number | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<string | number | null>(null);
   const [currentUsername, setCurrentUsername] = useState('you');
 
   const pickVideo = async () => {
@@ -62,7 +62,7 @@ export default function FeedScreen() {
     });
 
     if (!result.canceled && result.assets[0]) {
-      setSelectedVideo(result.assets[0].uri as any);
+      setSelectedVideo(result.assets[0].uri);
     }
   };
 
@@ -130,7 +130,7 @@ export default function FeedScreen() {
             
             {post.videoUri && (
               <Video
-                source={post.videoUri}
+                source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
                 style={styles.video}
                 useNativeControls
                 resizeMode={ResizeMode.CONTAIN}
