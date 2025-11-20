@@ -1,3 +1,7 @@
+import VideoAnnotation, { LimbAnnotation } from '@/components/VideoAnnotation';
+import { ClimbPost } from '@/types/post';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 import { ResizeMode, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useMemo, useState } from 'react';
@@ -19,6 +23,8 @@ interface Post {
   videoUri?: number | string;
   location: string;
   difficulty: string;
+  color?: string;
+  annotations?: LimbAnnotation[];
 }
 
 export default function FeedScreen() {
@@ -31,7 +37,8 @@ export default function FeedScreen() {
   ];
   const [selectedGym, setSelectedGym] = useState<string>(gyms[0]);
   const [gymDropdownOpen, setGymDropdownOpen] = useState(false);
-  const [posts, setPosts] = useState<Post[]>([
+  
+  const defaultPosts: Post[] = [
     {
       id: '1',
       username: 'Joe Bob',
@@ -60,7 +67,9 @@ export default function FeedScreen() {
       location: 'Penn Campus Recreation',
       difficulty: 'V9 Purple'
     },
-  ]);
+  ];
+  
+  const [posts, setPosts] = useState<Post[]>(defaultPosts);
   const [newPost, setNewPost] = useState('');
   const [selectedVideo, setSelectedVideo] = useState<string | number | null>(null);
   const [currentUsername, setCurrentUsername] = useState('you');
@@ -87,6 +96,56 @@ export default function FeedScreen() {
   const [selectedGrade, setSelectedGrade] = useState<string>('All Grades');
   const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
 
+
+  // Load posts from AsyncStorage when screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      loadPosts();
+    }, [])
+  );
+
+  const loadPosts = async () => {
+    try {
+      const climbPostsJson = await AsyncStorage.getItem('climb_posts');
+      if (climbPostsJson) {
+        const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
+        
+        // Convert ClimbPost to Post format
+        const userPosts: Post[] = climbPosts.map((cp) => ({
+          id: cp.id,
+          username: 'You',
+          content: cp.description,
+          timestamp: formatTimestamp(cp.createdAt),
+          videoUri: cp.videoUri,
+          location: cp.metadata.location,
+          difficulty: cp.metadata.difficulty + (cp.metadata.color ? ` ${cp.metadata.color}` : ''),
+          color: cp.metadata.color,
+          annotations: cp.annotations,
+        }));
+        
+        // Merge user posts with default posts
+        setPosts([...userPosts, ...defaultPosts]);
+      } else {
+        setPosts(defaultPosts);
+      }
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      setPosts(defaultPosts);
+    }
+  };
+
+  const formatTimestamp = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
 
   const pickVideo = async () => {
     // Request permission
@@ -281,11 +340,25 @@ export default function FeedScreen() {
       {/* Feed */}
       <ScrollView style={styles.feed}>
         {filteredPosts.map((post) => (
-          <View key={post.id} style={styles.postCardHorizontal}>
-            {post.videoUri ? (
+          <View key={post.id} style={styles.postCard}>
+            <View style={styles.postHeaderRow}>
+              <Text style={styles.username}>{post.username}</Text>
+              <Text style={styles.timestamp}>{post.timestamp}</Text>
+            </View>
+
+            {/* Video with annotations if available */}
+            {post.videoUri && post.annotations && post.annotations.length > 0 ? (
+              <View style={styles.annotatedVideoContainer}>
+                <VideoAnnotation
+                  videoUri={typeof post.videoUri === 'string' ? post.videoUri : ''}
+                  annotations={post.annotations}
+                  readonly={true}
+                />
+              </View>
+            ) : post.videoUri ? (
               <Video
                 source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
-                style={styles.postVideoThumbnail}
+                style={styles.postVideo}
                 useNativeControls
                 resizeMode={ResizeMode.CONTAIN}
                 isLooping
@@ -293,33 +366,27 @@ export default function FeedScreen() {
             ) : (
               <View style={styles.postVideoPlaceholder} />
             )}
-      
-            <View style={styles.postBody}>
-              <View style={styles.postHeaderRow}>
-                <Text style={styles.username}>{post.username}</Text>
-                <Text style={styles.timestamp}>{post.timestamp}</Text>
-              </View>
-      
-              <View style={styles.metadataRow}>
-                {post.location ? (
-                  <View style={styles.metadataItem}>
-                    <Text style={styles.metadataIcon}>📍</Text>
-                    <Text style={styles.metadataText} numberOfLines={1} ellipsizeMode="tail">
-                      {post.location}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-              
-              <View style={styles.metadataRow}>
-                {post.difficulty ? (
-                  <View style={styles.metadataItem}>
-                    <Text style={styles.metadataIcon}>🪨</Text>
-                    <Text style={styles.metadataText} numberOfLines={1}>{post.difficulty}</Text>
-                  </View>
-                ) : null}
-              </View>
+
+            {/* Metadata */}
+            <View style={styles.metadataContainer}>
+              {post.location && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataIcon}>📍</Text>
+                  <Text style={styles.metadataText}>{post.location}</Text>
+                </View>
+              )}
+              {post.difficulty && (
+                <View style={styles.metadataItem}>
+                  <Text style={styles.metadataIcon}>🪨</Text>
+                  <Text style={styles.metadataText}>{post.difficulty}</Text>
+                </View>
+              )}
             </View>
+
+            {/* Description */}
+            {post.content && (
+              <Text style={styles.postContent}>{post.content}</Text>
+            )}
           </View>
         ))}
       </ScrollView>
@@ -447,6 +514,12 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
   },
+  postCard: {
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+  },
   username: {
     fontSize: 16,
     fontWeight: 'bold',
@@ -456,55 +529,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
-  video: {
-    width: '100%',
-    height: 200,
-    borderRadius: 8,
-    backgroundColor: '#000',
-  },
-  postCardHorizontal: {
-  flexDirection: 'row',
-  alignItems: 'flex-start',
-  backgroundColor: '#F9F9F9',
-  borderRadius: 12,
-  padding: 12,
-  marginBottom: 12,
-  },
-  postVideoThumbnail: {
-    width: 120,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: '#000',
-    overflow: 'hidden',
-  },
-  postVideoPlaceholder: {
-    width: 120,
-    height: 100,
-    borderRadius: 8,
-    backgroundColor: '#E6E6E6',
-  },
-  postBody: {
-    flex: 1,
-    marginLeft: 12,
-    justifyContent: 'flex-start',
-  },
   postHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 12,
   },
-  metadataRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 6,
+  annotatedVideoContainer: {
+    marginBottom: 12,
+  },
+  postVideo: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: '#000',
+    marginBottom: 12,
+  },
+  postVideoPlaceholder: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: '#E6E6E6',
+    marginBottom: 12,
+  },
+  metadataContainer: {
+    marginBottom: 8,
   },
   metadataItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    maxWidth: '70%',
-    marginTop: 6,
+    marginBottom: 6,
   },
   metadataIcon: {
     fontSize: 14,

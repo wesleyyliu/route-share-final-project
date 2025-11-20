@@ -3,14 +3,14 @@ import { ResizeMode, Video } from 'expo-av';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Image,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export type LimbType = 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot';
@@ -28,6 +28,7 @@ interface VideoAnnotationProps {
   videoUri: string;
   annotations?: LimbAnnotation[];
   onAnnotationsChange?: (annotations: LimbAnnotation[]) => void;
+  onDoneEditing?: () => void;
   readonly?: boolean;
 }
 
@@ -52,6 +53,7 @@ export default function VideoAnnotation({
   videoUri,
   annotations = [],
   onAnnotationsChange,
+  onDoneEditing,
   readonly = false,
 }: VideoAnnotationProps) {
   const videoRef = useRef<any>(null);
@@ -76,6 +78,7 @@ export default function VideoAnnotation({
   const [isDraggingScrubber, setIsDraggingScrubber] = useState(false);
   const scrubberWidthRef = useRef(0);
   const seekTimeoutRef = useRef<number | null>(null);
+  const previousLimbIndexRef = useRef(currentLimbIndex);
 
   const currentLimbType = LIMB_SEQUENCE[currentLimbIndex];
 
@@ -108,13 +111,8 @@ export default function VideoAnnotation({
         [currentLimbType]: { x: xPercent, y: yPercent },
       });
       
-      // Move to next limb or finish
-      if (currentLimbIndex < LIMB_SEQUENCE.length - 1) {
-        setCurrentLimbIndex(currentLimbIndex + 1);
-      } else {
-        // All limbs done, show comment modal
-        setShowCommentModal(true);
-      }
+      // Show comment modal for this limb
+      setShowCommentModal(true);
     }
   };
 
@@ -122,31 +120,54 @@ export default function VideoAnnotation({
     if (currentLimbIndex < LIMB_SEQUENCE.length - 1) {
       setCurrentLimbIndex(currentLimbIndex + 1);
     } else {
-      // Last limb, go to comment
-      setShowCommentModal(true);
+      // Last limb, finish annotation sequence
+      finishAnnotationSequence();
     }
   };
 
-  const saveAllAnnotations = () => {
+  const goBackInModal = () => {
+    // Remove the current limb's position from sequence
+    const updatedSequence = { ...sequenceAnnotations };
+    delete updatedSequence[currentLimbType];
+    setSequenceAnnotations(updatedSequence);
+    
+    // Clear comment and close modal
+    setAnnotationComment('');
+    setShowCommentModal(false);
+    // Stay on same limb index so they can reposition
+  };
+
+  const saveCurrentLimbAnnotation = () => {
     if (!onAnnotationsChange) return;
 
-    const newAnnotations: LimbAnnotation[] = [];
-    
-    // Create annotations for each limb that was clicked
-    Object.entries(sequenceAnnotations).forEach(([limbType, position]) => {
-      newAnnotations.push({
-        id: `${Date.now()}_${limbType}`,
+    const position = sequenceAnnotations[currentLimbType];
+    if (position) {
+      const newAnnotation: LimbAnnotation = {
+        id: `${Date.now()}_${currentLimbType}`,
         timestamp: currentTime,
-        limbType: limbType as LimbType,
+        limbType: currentLimbType,
         x: position.x,
         y: position.y,
         comment: annotationComment,
-      });
-    });
+      };
 
-    onAnnotationsChange([...annotations, ...newAnnotations]);
+      onAnnotationsChange([...annotations, newAnnotation]);
+    }
     
-    // Reset state
+    // Clear comment and close modal
+    setAnnotationComment('');
+    setShowCommentModal(false);
+    
+    // Move to next limb or finish
+    if (currentLimbIndex < LIMB_SEQUENCE.length - 1) {
+      setCurrentLimbIndex(currentLimbIndex + 1);
+    } else {
+      // Last limb, finish annotation sequence
+      finishAnnotationSequence();
+    }
+  };
+
+  const finishAnnotationSequence = () => {
     setIsAnnotating(false);
     setCurrentLimbIndex(0);
     setSequenceAnnotations({});
@@ -197,6 +218,14 @@ export default function VideoAnnotation({
       }
     };
   }, []);
+
+  // Clear comment text when moving to a new limb
+  useEffect(() => {
+    if (previousLimbIndexRef.current !== currentLimbIndex) {
+      setAnnotationComment('');
+      previousLimbIndexRef.current = currentLimbIndex;
+    }
+  }, [currentLimbIndex]);
 
   const generateThumbnails = async () => {
     setIsGeneratingThumbnails(true);
@@ -497,8 +526,8 @@ export default function VideoAnnotation({
       )}
 
       {/* Done Editing Button */}
-      {!readonly && !isAnnotating && (
-        <TouchableOpacity style={styles.doneButton}>
+      {!readonly && !isAnnotating && onDoneEditing && (
+        <TouchableOpacity style={styles.doneButton} onPress={onDoneEditing}>
           <Text style={styles.doneButtonText}>done editing</Text>
         </TouchableOpacity>
       )}
@@ -512,13 +541,19 @@ export default function VideoAnnotation({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalBackButton} onPress={cancelAnnotation}>
+            <TouchableOpacity style={styles.modalBackButton} onPress={goBackInModal}>
               <Text style={styles.backButtonText}>←</Text>
             </TouchableOpacity>
             
-            <Text style={styles.modalTitle}>leave a comment?</Text>
+            <Text style={styles.modalTitle}>
+              leave a comment?
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {LIMB_LABELS[currentLimbType]}
+            </Text>
 
             <TextInput
+              key={`comment-${currentLimbIndex}`}
               style={styles.modalInput}
               placeholder=""
               value={annotationComment}
@@ -529,9 +564,11 @@ export default function VideoAnnotation({
 
             <TouchableOpacity
               style={styles.modalNextButton}
-              onPress={saveAllAnnotations}
+              onPress={saveCurrentLimbAnnotation}
             >
-              <Text style={styles.modalNextButtonText}>next</Text>
+              <Text style={styles.modalNextButtonText}>
+                {currentLimbIndex < LIMB_SEQUENCE.length - 1 ? 'next' : 'finish'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -803,7 +840,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     color: '#2C3D50',
+    marginBottom: 8,
+  },
+  modalSubtitle: {
+    fontSize: 16,
+    color: '#666',
     marginBottom: 20,
+    fontStyle: 'italic',
   },
   modalInput: {
     borderWidth: 1,
