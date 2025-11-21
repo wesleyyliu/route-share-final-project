@@ -4,14 +4,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { ResizeMode, Video } from 'expo-av';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -24,6 +27,7 @@ interface Post {
   location: string;
   difficulty: string;
   color?: string;
+  avatar?: number | string;
   annotations?: LimbAnnotation[];
 }
 
@@ -45,6 +49,7 @@ export default function FeedScreen() {
       content: 'Just sent my first V5! 🎉',
       timestamp: '2 hours ago',
       videoUri: require('@/assets/videos/post1.mp4'),
+      avatar: require('../../assets/images/snoopy4.png'),
       location: 'Penn Campus Recreation',
       difficulty: 'V5 Blue',
     },
@@ -54,6 +59,7 @@ export default function FeedScreen() {
       content: 'Working on crimps at the gym today!',
       timestamp: '5 hours ago',
       videoUri: require('@/assets/videos/post2.mov'),
+      avatar: require('../..//assets/images/snoopy2.webp'),
       location: 'Tufas Boulder Lounge',
       difficulty: 'V3 Yellow',
 
@@ -61,11 +67,22 @@ export default function FeedScreen() {
     {
       id: '3',
       username: 'Hillary Clinton',
-      content: 'Great session today!',
+      content: 'Great session, made lots of progress!',
       timestamp: '1 day ago',
-      videoUri: require('@/assets/videos/post2.mov'),
+      videoUri: require('@/assets/videos/post1.mp4'),
+      avatar: require('../..//assets/images/snoopy3.jpeg'),
       location: 'Penn Campus Recreation',
       difficulty: 'V9 Purple'
+    },
+    {
+      id: '4',
+      username: 'Bob Job',
+      content: 'I love this gym!',
+      timestamp: '3 day ago',
+      videoUri: require('@/assets/videos/post2.mov'),
+      avatar: require('../..//assets/images/snoopy1.jpg'),
+      location: 'Movement Callowhill',
+      difficulty: 'V4 White'
     },
   ];
   
@@ -86,7 +103,7 @@ export default function FeedScreen() {
     'Black',
   ];
   
-  // grades V0..V13
+  // grades V0 to V13
   const gradeOptions = ['All Grades', ...Array.from({ length: 14 }, (_, i) => `V${i}`)];
   
   // selection state for these dropdowns
@@ -95,6 +112,10 @@ export default function FeedScreen() {
   
   const [selectedGrade, setSelectedGrade] = useState<string>('All Grades');
   const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
+  const colorBtnRef = useRef<any>(null);
+  const gradeBtnRef = useRef<any>(null);
+  const [colorBtnLayout, setColorBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [gradeBtnLayout, setGradeBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
 
   // Load posts from AsyncStorage when screen is focused
@@ -155,7 +176,6 @@ export default function FeedScreen() {
       return;
     }
 
-    // Pick video
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
       allowsEditing: true,
@@ -265,63 +285,61 @@ export default function FeedScreen() {
           multiline={false}
         />
 
+        {/* color dropdown */}
         <View style={{ marginTop: 8, flexDirection: 'row', gap: 12 }}>
-          <View style={{ flex: 1 }}>
+          <View style={{ width: '48%', position: 'relative', overflow: 'visible' }}>
             <Text style={{ fontSize: 12, color: '#6B7885', marginBottom: 6 }}>Color</Text>
-            <TouchableOpacity
-              style={styles.gymDropdown}
-              onPress={() => setColorDropdownOpen((s) => !s)}
-              activeOpacity={0.8}
-            >
+              <TouchableOpacity
+                ref={colorBtnRef}
+                style={styles.gymDropdown}
+                onPress={() => {
+                  if (colorDropdownOpen) {
+                    setColorDropdownOpen(false);
+                    return;
+                  }
+                  if (colorBtnRef.current && colorBtnRef.current.measureInWindow) {
+                    colorBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+                      setColorBtnLayout({ x, y, width: w, height: h });
+                      setColorDropdownOpen(true);
+                    });
+                  } else {
+                    setColorDropdownOpen(true);
+                  }
+                }}
+                activeOpacity={0.8}
+              >
               <Text style={styles.gymSelectedText}>{selectedColor}</Text>
               <Text style={styles.gymCaret}>{colorDropdownOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
         
-            {colorDropdownOpen && (
-              <View style={styles.gymOptions}>
-                {colorOptions.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={styles.gymOption}
-                    onPress={() => {
-                      setSelectedColor(c);
-                      setColorDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.gymOptionText}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+          {/* grade dropdown */}
           </View>
         
-          <View style={{ flex: 1 }}>
+          <View style={{ width: '48%', position: 'relative', overflow: 'visible' }}>
             <Text style={{ fontSize: 12, color: '#6B7885', marginBottom: 6 }}>Grade</Text>
-            <TouchableOpacity
-              style={styles.gymDropdown}
-              onPress={() => setGradeDropdownOpen((s) => !s)}
-              activeOpacity={0.8}
+              <TouchableOpacity
+                ref={gradeBtnRef}
+                style={styles.gymDropdown}
+                onPress={() => {
+                  if (gradeDropdownOpen) {
+                    setGradeDropdownOpen(false);
+                    return;
+                  }
+                  if (gradeBtnRef.current && gradeBtnRef.current.measureInWindow) {
+                    gradeBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+                      setGradeBtnLayout({ x, y, width: w, height: h });
+                      setGradeDropdownOpen(true);
+                    });
+                  } else {
+                    setGradeDropdownOpen(true);
+                  }
+                }}
+                activeOpacity={0.8}
             >
               <Text style={styles.gymSelectedText}>{selectedGrade}</Text>
               <Text style={styles.gymCaret}>{gradeDropdownOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
         
-            {gradeDropdownOpen && (
-              <View style={styles.gymOptions}>
-                {gradeOptions.map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={styles.gymOption}
-                    onPress={() => {
-                      setSelectedGrade(g);
-                      setGradeDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.gymOptionText}>{g}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
         </View>
 
@@ -340,56 +358,123 @@ export default function FeedScreen() {
       {/* Feed */}
       <ScrollView style={styles.feed}>
         {filteredPosts.map((post) => (
-          <View key={post.id} style={styles.postCard}>
-            <View style={styles.postHeaderRow}>
-              <Text style={styles.username}>{post.username}</Text>
-              <Text style={styles.timestamp}>{post.timestamp}</Text>
-            </View>
-
-            {/* Video with annotations if available */}
-            {post.videoUri && post.annotations && post.annotations.length > 0 ? (
-              <View style={styles.annotatedVideoContainer}>
+          <View key={post.id} style={styles.postCardHorizontal}>
+            {/* Left: fixed-size video box */}
+            <View style={styles.postVideoWrapper}>
+              {post.videoUri && post.annotations && post.annotations.length > 0 ? (
                 <VideoAnnotation
                   videoUri={typeof post.videoUri === 'string' ? post.videoUri : ''}
                   annotations={post.annotations}
                   readonly={true}
                 />
-              </View>
-            ) : post.videoUri ? (
-              <Video
-                source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
-                style={styles.postVideo}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping
-              />
-            ) : (
-              <View style={styles.postVideoPlaceholder} />
-            )}
-
-            {/* Metadata */}
-            <View style={styles.metadataContainer}>
-              {post.location && (
-                <View style={styles.metadataItem}>
-                  <Text style={styles.metadataIcon}>📍</Text>
-                  <Text style={styles.metadataText}>{post.location}</Text>
-                </View>
-              )}
-              {post.difficulty && (
-                <View style={styles.metadataItem}>
-                  <Text style={styles.metadataIcon}>🪨</Text>
-                  <Text style={styles.metadataText}>{post.difficulty}</Text>
-                </View>
+              ) : post.videoUri ? (
+                <Video
+                  source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
+                  style={styles.postVideoInner}
+                  useNativeControls
+                  resizeMode={ResizeMode.COVER}
+                  isLooping
+                />
+              ) : (
+                <View style={styles.postVideoPlaceholderSmall} />
               )}
             </View>
 
-            {/* Description */}
-            {post.content && (
-              <Text style={styles.postContent}>{post.content}</Text>
-            )}
+            {/* Right: content */}
+            <View style={styles.postBody}>
+              <View style={styles.postHeaderRow}>
+                <View style={styles.avatarContainer}>
+                  <Image
+                    source={post.avatar ? (typeof post.avatar === 'string' ? { uri: post.avatar } : post.avatar) : require('@/assets/images/default.jpg')}
+                    style={styles.avatar}
+                    resizeMode="cover"
+                  />
+                </View>
+
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.username}>{post.username}</Text>
+                  <Text style={styles.timestamp}>{post.timestamp}</Text>
+                </View>
+              </View>
+
+              <View style={styles.metadataContainer}>
+                {post.location && (
+                  <View style={styles.metadataItem}>
+                    <Text style={styles.metadataIcon}>📍</Text>
+                    <Text style={styles.metadataText}>{post.location}</Text>
+                  </View>
+                )}
+                {post.difficulty && (
+                  <View style={styles.metadataItem}>
+                    <Text style={styles.metadataIcon}>🪨</Text>
+                    <Text style={styles.metadataText}>{post.difficulty}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* {post.content && (
+                <Text style={styles.postContent}>{post.content}</Text>
+              )} */}
+            </View>
           </View>
         ))}
       </ScrollView>
+      {/* Color dropdown modal overlay */}
+      {colorDropdownOpen && (
+        <Modal transparent visible={colorDropdownOpen} onRequestClose={() => setColorDropdownOpen(false)}>
+          <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={() => setColorDropdownOpen(false)}>
+              <View style={{ flex: 1, backgroundColor: 'transparent' }} />
+            </TouchableWithoutFeedback>
+
+            <View style={{ position: 'absolute', top: (colorBtnLayout ? colorBtnLayout.y + colorBtnLayout.height + 4 : 120), left: (colorBtnLayout ? colorBtnLayout.x : 20), width: Math.max(colorBtnLayout ? colorBtnLayout.width : 180, 180) }}>
+              <ScrollView style={[styles.gymOptions, { maxHeight: 220 }]} contentContainerStyle={{ paddingVertical: 4 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                {colorOptions.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={styles.gymOption}
+                    onPress={() => {
+                      setSelectedColor(c);
+                      setColorDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.gymOptionText}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Grade dropdown modal overlay */}
+      {gradeDropdownOpen && (
+        <Modal transparent visible={gradeDropdownOpen} onRequestClose={() => setGradeDropdownOpen(false)}>
+          <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={() => setGradeDropdownOpen(false)}>
+              <View style={{ flex: 1, backgroundColor: 'transparent' }} />
+            </TouchableWithoutFeedback>
+
+            <View style={{ position: 'absolute', top: (gradeBtnLayout ? gradeBtnLayout.y + gradeBtnLayout.height + 4 : 160), left: (gradeBtnLayout ? gradeBtnLayout.x : 20), width: Math.max(gradeBtnLayout ? gradeBtnLayout.width : 180, 180) }}>
+              <ScrollView style={[styles.gymOptions, { maxHeight: 300 }]} contentContainerStyle={{ paddingVertical: 4 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                {gradeOptions.map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={styles.gymOption}
+                    onPress={() => {
+                      setSelectedGrade(g);
+                      setGradeDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.gymOptionText}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
     </View>
   );
 }
@@ -419,7 +504,7 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     backgroundColor: '#F9F9F9',
     marginBottom: 5,
-    minHeight: 30,
+    minHeight: 25,
     textAlignVertical: 'top',
   },
   videoButton: {
@@ -501,6 +586,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 12,
     overflow: 'hidden',
+    zIndex: 50,
+    elevation: 6,
   },
   gymOption: {
     paddingHorizontal: 12,
@@ -544,6 +631,37 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#000',
     marginBottom: 12,
+  },
+  postCardHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  postVideoWrapper: {
+    width: 120,
+    height: 100,
+    borderRadius: 8,
+    // overflow: 'hidden',
+    backgroundColor: '#000',
+    flexShrink: 0,
+    marginRight: 12,
+  },
+  postVideoInner: {
+    width: '100%',
+    height: '100%',
+  },
+  postVideoPlaceholderSmall: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    backgroundColor: '#E6E6E6',
+  },
+  postBody: {
+    flex: 1,
+    justifyContent: 'flex-start',
   },
   postVideoPlaceholder: {
     width: '100%',
@@ -605,5 +723,19 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: '#FFFFFF',
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    // overflow: 'hidden',
+    backgroundColor: '#E6E6E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
 });
