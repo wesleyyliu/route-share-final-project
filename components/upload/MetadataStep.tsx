@@ -43,7 +43,7 @@ export default function MetadataStep({
         <Video
           source={{ uri: videoUri }}
           style={styles.thumbnailVideo}
-          resizeMode={ResizeMode.COVER}
+          resizeMode={ResizeMode.CONTAIN}
           shouldPlay={false}
         />
       </View>
@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
   },
   videoThumbnail: {
     width: '100%',
-    height: 200,
-    backgroundColor: '#000',
+    height: 300,
+    backgroundColor: '#F5F5F5',
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 24,
