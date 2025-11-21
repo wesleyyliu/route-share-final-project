@@ -5,6 +5,7 @@ import MetadataStep from '@/components/upload/MetadataStep';
 import SelectVideoStep from '@/components/upload/SelectVideoStep';
 import { ClimbMetadata, ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -12,6 +13,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 type WorkflowStep = 'select' | 'metadata' | 'annotate' | 'confirm';
 
 export default function VideoAnnotatorScreen() {
+  const router = useRouter();
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('select');
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<LimbAnnotation[]>([]);
@@ -95,6 +97,8 @@ export default function VideoAnnotatorScreen() {
             setMetadata({ location: '', difficulty: '', color: '' });
             setDescription('');
             setWorkflowStep('select');
+            // Navigate to home tab to see the new post
+            router.push('/(tabs)');
           }
         }
       ]);
