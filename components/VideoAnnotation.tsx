@@ -152,6 +152,11 @@ export default function VideoAnnotation({
       };
 
       onAnnotationsChange([...annotations, newAnnotation]);
+      
+      // Remove from sequenceAnnotations after saving
+      const updatedSequence = { ...sequenceAnnotations };
+      delete updatedSequence[currentLimbType];
+      setSequenceAnnotations(updatedSequence);
     }
     
     // Clear comment and close modal
@@ -173,6 +178,34 @@ export default function VideoAnnotation({
     setSequenceAnnotations({});
     setAnnotationComment('');
     setShowCommentModal(false);
+  };
+
+  const goBackToPreviousLimb = () => {
+    if (currentLimbIndex === 0) {
+      // On first limb, cancel entire sequence
+      cancelAnnotation();
+    } else {
+      // Go back to previous limb
+      const previousLimbIndex = currentLimbIndex - 1;
+      const previousLimbType = LIMB_SEQUENCE[previousLimbIndex];
+      
+      // Find and remove the annotation for the previous limb at this timestamp
+      if (onAnnotationsChange) {
+        const filteredAnnotations = annotations.filter(a => {
+          // Keep annotations that are NOT the previous limb at the current timestamp
+          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - currentTime) < 0.5);
+        });
+        onAnnotationsChange(filteredAnnotations);
+      }
+      
+      // Remove the previous limb from sequenceAnnotations
+      const updatedSequence = { ...sequenceAnnotations };
+      delete updatedSequence[previousLimbType];
+      setSequenceAnnotations(updatedSequence);
+      
+      // Move back to previous limb
+      setCurrentLimbIndex(previousLimbIndex);
+    }
   };
 
   const cancelAnnotation = () => {
@@ -289,7 +322,7 @@ export default function VideoAnnotation({
       }
       seekTimeoutRef.current = setTimeout(() => {
         seekTo(newTime);
-      }, 50); // 50ms debounce
+      }, 20); // 20ms debounce
     }
   };
 
@@ -339,6 +372,7 @@ export default function VideoAnnotation({
                   backgroundColor: LIMB_COLORS[annotation.limbType],
                 },
               ]}
+              pointerEvents="none"
             >
               <View style={[styles.markerRing, { borderColor: LIMB_COLORS[annotation.limbType] }]} />
             </View>
@@ -356,6 +390,7 @@ export default function VideoAnnotation({
                   backgroundColor: LIMB_COLORS[limbType as LimbType],
                 },
               ]}
+              pointerEvents="none"
             >
               <View style={[styles.markerRing, { borderColor: LIMB_COLORS[limbType as LimbType] }]} />
             </View>
@@ -386,6 +421,7 @@ export default function VideoAnnotation({
       </View>
 
       {/* Add Drag for Scrubber */}
+      {!isAnnotating && (
       <View 
         style={styles.scrubberContainer}
         onLayout={(e) => {
@@ -475,8 +511,10 @@ export default function VideoAnnotation({
           </Text>
         </View>
       </View>
+      )}
 
       {/* Annotation Timeline Bar - Below Scrubber */}
+      {!isAnnotating && (
       <View style={styles.annotationTimelineContainer}>
         {annotations.map((annotation) => (
           <View
@@ -490,6 +528,7 @@ export default function VideoAnnotation({
           />
         ))}
       </View>
+      )}
 
       {/* Add Hold Button or Sequential Prompt */}
       {!readonly && !isAnnotating && (
@@ -501,7 +540,7 @@ export default function VideoAnnotation({
       {/* Sequential Annotation Prompt */}
       {isAnnotating && !showCommentModal && (
         <View style={styles.annotationPrompt}>
-          <TouchableOpacity style={styles.backButton} onPress={cancelAnnotation}>
+          <TouchableOpacity style={styles.backButton} onPress={goBackToPreviousLimb}>
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
           
@@ -584,7 +623,7 @@ const styles = StyleSheet.create({
   videoWrapper: {
     width: '100%',
     height: 300,
-    backgroundColor: '#000',
+    backgroundColor: '#F5F5F5',
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
