@@ -1,12 +1,15 @@
-import VideoAnnotation, { LimbAnnotation } from '@/components/VideoAnnotation';
+import { RecordingTipsModal } from '@/components/RecordingTipsModal';
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import ConfirmationStep from '@/components/upload/ConfirmationStep';
 import EditMetadataModal from '@/components/upload/EditMetadataModal';
 import MetadataStep from '@/components/upload/MetadataStep';
 import SelectVideoStep from '@/components/upload/SelectVideoStep';
+import VideoAnnotation, { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbMetadata, ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -23,6 +26,8 @@ export default function VideoAnnotatorScreen() {
     color: '',
   });
   const [description, setDescription] = useState('');
+
+  const [showTips, setShowTips] = useState<boolean>(true);
 
   // Dropdown states
   const [locationDropdownOpen, setLocationDropdownOpen] = useState(false);
@@ -159,7 +164,22 @@ export default function VideoAnnotatorScreen() {
         showsVerticalScrollIndicator={true}
       >
         {/* Step 1: Select Video */}
-        {workflowStep === 'select' && <SelectVideoStep onSelectVideo={pickVideo} />}
+        {workflowStep === 'select' && (
+          <>
+            {/* Small header/title similar to downloads upload.tsx */}
+            <ThemedView style={styles.titleContainer}>
+              <ThemedText type="title" style={styles.title}>
+                Upload & Annotate
+              </ThemedText>
+            </ThemedView>
+
+            <Text style={styles.instructions}>
+              Upload a climbing video and tap on limbs (hands and feet) to annotate them!
+            </Text>
+
+            <SelectVideoStep onSelectVideo={pickVideo} />
+          </>
+        )}
 
         {/* Step 2: Add Metadata */}
         {workflowStep === 'metadata' && videoUri && (
@@ -240,6 +260,15 @@ export default function VideoAnnotatorScreen() {
         onColorDropdownToggle={handleColorDropdownToggle}
         onClose={handleCloseEditModal}
       />
+
+      {/* Recording tips modal (brought over from downloads/upload.tsx) */}
+      <RecordingTipsModal
+        visible={showTips}
+        onClose={() => setShowTips(false)}
+        onFinished={async () => {
+          setShowTips(false);
+        }}
+      />
     </View>
   );
 }
@@ -277,5 +306,25 @@ const styles = StyleSheet.create({
   videoContainerWithMargin: {
     flex: 1,
     marginTop: 20,
+  },
+  titleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 12,
+    backgroundColor: 'transparent',
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#FFFFFF',
+    backgroundColor: 'transparent',
+  },
+  instructions: {
+    fontSize: 15,
+    color: '#E6EEF2',
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 22,
   },
 });
