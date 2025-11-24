@@ -1,14 +1,17 @@
 import ActivityCard from '@/components/ActivityCard';
+import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 
@@ -21,14 +24,17 @@ interface Post {
   location: string;
   difficulty: string;
   color?: string;
+  avatar?: number | string;
+  annotations?: LimbAnnotation[];
 }
 
 export default function HomeScreen() {
   const gyms = [
     'All Gyms',
-    'Movement',
-    'Tufas',
-    'Pottruck',
+    'Penn Campus Recreation',
+    'Tufas Boulder Lounge',
+    'Movement Callowhill',
+    'Main Line Boulders',
   ];
   const [selectedGym, setSelectedGym] = useState<string>(gyms[0]);
   const [gymDropdownOpen, setGymDropdownOpen] = useState(false);
@@ -38,31 +44,42 @@ export default function HomeScreen() {
       id: '1',
       username: 'Joe Bob',
       content: 'Just sent my first V5! 🎉',
-      timestamp: '2 days ago',
+      timestamp: '2 hours ago',
       videoUri: require('@/assets/videos/post1.mp4'),
+      avatar: require('../../assets/images/snoopy4.png'),
       location: 'Penn Campus Recreation',
-      difficulty: 'V5',
-      color: 'Blue',
+      difficulty: 'V5 Blue',
     },
     {
       id: '2',
       username: 'Carter Anderson',
       content: 'Working on crimps at the gym today!',
-      timestamp: '5 days ago',
+      timestamp: '5 hours ago',
       videoUri: require('@/assets/videos/post2.mov'),
+      avatar: require('../..//assets/images/snoopy2.webp'),
       location: 'Tufas Boulder Lounge',
-      difficulty: 'V3',
-      color: 'Yellow',
+      difficulty: 'V3 Yellow',
+
     },
     {
       id: '3',
       username: 'Hillary Clinton',
-      content: 'Great session today!',
-      timestamp: '6 days ago',
+      content: 'Great session, made lots of progress!',
+      timestamp: '1 day ago',
+      videoUri: require('@/assets/videos/post1.mp4'),
+      avatar: require('../..//assets/images/snoopy3.jpeg'),
+      location: 'Penn Campus Recreation',
+      difficulty: 'V9 Purple'
+    },
+    {
+      id: '4',
+      username: 'Bob Job',
+      content: 'I love this gym!',
+      timestamp: '3 day ago',
       videoUri: require('@/assets/videos/post2.mov'),
+      avatar: require('../..//assets/images/snoopy1.jpg'),
       location: 'Movement Callowhill',
-      difficulty: 'V9',
-      color: 'Purple',
+      difficulty: 'V4 White'
     },
   ];
 
@@ -87,6 +104,10 @@ export default function HomeScreen() {
 
   const [selectedGrade, setSelectedGrade] = useState<string>('All Grades');
   const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
+  const colorBtnRef = useRef<any>(null);
+  const gradeBtnRef = useRef<any>(null);
+  const [colorBtnLayout, setColorBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [gradeBtnLayout, setGradeBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // Load posts from AsyncStorage when screen is focused
   useFocusEffect(
@@ -101,7 +122,6 @@ export default function HomeScreen() {
       if (climbPostsJson) {
         const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
 
-        // Convert ClimbPost to Post format
         const userPosts: Post[] = climbPosts.map((cp) => ({
           id: cp.id,
           username: 'You',
@@ -111,6 +131,7 @@ export default function HomeScreen() {
           location: cp.metadata.location,
           difficulty: cp.metadata.difficulty,
           color: cp.metadata.color,
+          annotations: cp.annotations,
         }));
 
         // Merge user posts with default posts
@@ -164,22 +185,24 @@ export default function HomeScreen() {
       });
     }
 
-    // grade filter
+    // grade filter (match feed.tsx behavior: grade is first token of difficulty)
     if (selectedGrade && selectedGrade !== 'All Grades') {
       const g = selectedGrade.trim().toLowerCase();
       base = base.filter((p) => {
         if (!p.difficulty) return false;
-        const grade = p.difficulty.toLowerCase();
+        const grade = p.difficulty.split(' ')[0].toLowerCase(); // e.g. 'v5'
         return grade === g;
       });
     }
 
-    // color filter
+    // color filter (match feed.tsx behavior: color is everything after the grade token in difficulty)
     if (selectedColor && selectedColor !== 'All Colors') {
       const c = selectedColor.trim().toLowerCase();
       base = base.filter((p) => {
-        if (!p.color) return false;
-        return p.color.toLowerCase() === c;
+        if (!p.difficulty) return false;
+        const parts = p.difficulty.split(' ');
+        const color = parts.length > 1 ? parts.slice(1).join(' ').toLowerCase() : (p.color ? p.color.toLowerCase() : '');
+        return color === c;
       });
     }
 
@@ -193,22 +216,19 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.locationLabel}>Your location</Text>
         <Text style={styles.locationText}>Philadelphia, PA, 19104</Text>
 
-        {/* Search Input */}
         <TextInput
           style={styles.input}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search climbs"
+          placeholder="Search climbs, users, etc."
           placeholderTextColor="#888"
           returnKeyType="search"
         />
 
-        {/* Gym Dropdown */}
         <View style={styles.dropdownContainer}>
           <TouchableOpacity
             style={styles.dropdown}
@@ -240,14 +260,25 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Color and Grade Filters */}
         <View style={styles.filterRow}>
           <View style={styles.filterColumn}>
             <Text style={styles.filterLabel}>Color</Text>
             <TouchableOpacity
+              ref={colorBtnRef}
               style={styles.dropdown}
               onPress={() => {
-                setColorDropdownOpen(!colorDropdownOpen);
+                if (colorDropdownOpen) {
+                  setColorDropdownOpen(false);
+                  return;
+                }
+                if (colorBtnRef.current && colorBtnRef.current.measureInWindow) {
+                  colorBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+                    setColorBtnLayout({ x, y, width: w, height: h });
+                    setColorDropdownOpen(true);
+                  });
+                } else {
+                  setColorDropdownOpen(true);
+                }
                 setGymDropdownOpen(false);
                 setGradeDropdownOpen(false);
               }}
@@ -256,31 +287,26 @@ export default function HomeScreen() {
               <Text style={styles.dropdownText}>{selectedColor}</Text>
               <Text style={styles.caret}>{colorDropdownOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
-
-            {colorDropdownOpen && (
-              <View style={styles.dropdownOptions}>
-                {colorOptions.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      setSelectedColor(c);
-                      setColorDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownOptionText}>{c}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
 
           <View style={styles.filterColumn}>
             <Text style={styles.filterLabel}>Grade</Text>
             <TouchableOpacity
+              ref={gradeBtnRef}
               style={styles.dropdown}
               onPress={() => {
-                setGradeDropdownOpen(!gradeDropdownOpen);
+                if (gradeDropdownOpen) {
+                  setGradeDropdownOpen(false);
+                  return;
+                }
+                if (gradeBtnRef.current && gradeBtnRef.current.measureInWindow) {
+                  gradeBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+                    setGradeBtnLayout({ x, y, width: w, height: h });
+                    setGradeDropdownOpen(true);
+                  });
+                } else {
+                  setGradeDropdownOpen(true);
+                }
                 setGymDropdownOpen(false);
                 setColorDropdownOpen(false);
               }}
@@ -289,23 +315,6 @@ export default function HomeScreen() {
               <Text style={styles.dropdownText}>{selectedGrade}</Text>
               <Text style={styles.caret}>{gradeDropdownOpen ? '▲' : '▼'}</Text>
             </TouchableOpacity>
-
-            {gradeDropdownOpen && (
-              <View style={styles.dropdownOptions}>
-                {gradeOptions.map((g) => (
-                  <TouchableOpacity
-                    key={g}
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      setSelectedGrade(g);
-                      setGradeDropdownOpen(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownOptionText}>{g}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
         </View>
       </View>
@@ -326,15 +335,84 @@ export default function HomeScreen() {
             color={post.color}
             timestamp={post.timestamp}
             videoUri={post.videoUri || ''}
+            avatar={post.avatar || ''}
             onPress={() => handlePostPress(post.id)}
           />
         ))}
       </ScrollView>
+      {colorDropdownOpen && (
+        <Modal transparent visible={colorDropdownOpen} onRequestClose={() => setColorDropdownOpen(false)}>
+          <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={() => setColorDropdownOpen(false)}>
+              <View style={{ flex: 1, backgroundColor: 'transparent' }} />
+            </TouchableWithoutFeedback>
+
+            <View style={{ position: 'absolute', top: (colorBtnLayout ? colorBtnLayout.y + colorBtnLayout.height + 4 : 120), left: (colorBtnLayout ? colorBtnLayout.x : 20), width: Math.max(colorBtnLayout ? colorBtnLayout.width : 180, 180) }}>
+              <ScrollView style={[styles.dropdownOptions, { maxHeight: 220 }]} contentContainerStyle={{ paddingVertical: 4 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                {colorOptions.map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      setSelectedColor(c);
+                      setColorDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownOptionText}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {gradeDropdownOpen && (
+        <Modal transparent visible={gradeDropdownOpen} onRequestClose={() => setGradeDropdownOpen(false)}>
+          <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={() => setGradeDropdownOpen(false)}>
+              <View style={{ flex: 1, backgroundColor: 'transparent' }} />
+            </TouchableWithoutFeedback>
+
+            <View style={{ position: 'absolute', top: (gradeBtnLayout ? gradeBtnLayout.y + gradeBtnLayout.height + 4 : 160), left: (gradeBtnLayout ? gradeBtnLayout.x : 20), width: Math.max(gradeBtnLayout ? gradeBtnLayout.width : 180, 180) }}>
+              <ScrollView style={[styles.dropdownOptions, { maxHeight: 300 }]} contentContainerStyle={{ paddingVertical: 4 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                {gradeOptions.map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      setSelectedGrade(g);
+                      setGradeDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownOptionText}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    // overflow: 'hidden',
+    backgroundColor: '#E6E6E6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -431,5 +509,87 @@ const styles = StyleSheet.create({
   feedContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+  },
+  metadataContainer: {
+    marginBottom: 8,
+  },
+  metadataItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  metadataIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  metadataText: {
+    fontSize: 14,
+    color: '#6B7885',
+  },
+  username: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2C3D50',
+  },
+  timestamp: {
+    fontSize: 14,
+    color: '#999',
+  },
+  postContent: {
+    fontSize: 15,
+    color: '#2C3D50',
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  postHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  postVideo: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: '#000',
+    marginBottom: 12,
+  },
+  postCardHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  postVideoWrapper: {
+    width: 120,
+    height: 100,
+    borderRadius: 8,
+    // overflow: 'hidden',
+    backgroundColor: '#000',
+    flexShrink: 0,
+    marginRight: 12,
+  },
+  postVideoInner: {
+    width: '100%',
+    height: '100%',
+  },
+  postVideoPlaceholderSmall: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+    backgroundColor: '#E6E6E6',
+  },
+  postBody: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  postVideoPlaceholder: {
+    width: '100%',
+    height: 250,
+    borderRadius: 8,
+    backgroundColor: '#E6E6E6',
+    marginBottom: 12,
   },
 });

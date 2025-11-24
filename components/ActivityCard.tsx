@@ -1,3 +1,4 @@
+import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ResizeMode, Video } from 'expo-av';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -8,6 +9,8 @@ interface ActivityCardProps {
   color?: string;
   timestamp: string;
   videoUri: string | number;
+  avatar?: number | string;
+  annotations?: LimbAnnotation[];
   onPress?: () => void;
 }
 
@@ -18,6 +21,7 @@ export default function ActivityCard({
   color,
   timestamp,
   videoUri,
+  avatar,
   onPress,
 }: ActivityCardProps) {
   return (
@@ -42,9 +46,11 @@ export default function ActivityCard({
 
       <View style={styles.content}>
         <View style={styles.userRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
-          </View>
+          <Image
+            source={avatar ? (typeof avatar === 'string' ? { uri: avatar } : avatar) : require('@/assets/images/default.jpg')}
+            style={styles.avatar}
+            resizeMode="cover"
+          />
           <Text style={styles.username}>{username}</Text>
         </View>
 
