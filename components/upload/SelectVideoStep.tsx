@@ -10,16 +10,10 @@ interface SelectVideoStepProps {
 export default function SelectVideoStep({ onSelectVideo }: SelectVideoStepProps) {
   return (
     <>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title" style={styles.title}>
-          Upload & annotate
-        </ThemedText>
-      </ThemedView>
-
       <TouchableOpacity style={styles.uploadCard} onPress={onSelectVideo}>
         <MaterialIcons name="upload" size={64} color="#999" style={styles.uploadIcon} />
         <Text style={styles.uploadText}>Select video from</Text>
-        <Text style={styles.uploadText}>Camera roll</Text>
+        <Text style={styles.uploadText}>camera roll</Text>
       </TouchableOpacity>
     </>
   );
