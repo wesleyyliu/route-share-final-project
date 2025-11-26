@@ -225,7 +225,7 @@ export default function HomeScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search climbs, users, etc."
-          placeholderTextColor="#888"
+          placeholderTextColor="#9198a7ff"
           returnKeyType="search"
         />
 
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   header: {
-    backgroundColor: '#3D5366',
+    backgroundColor: '#2C3D50',
     paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   input: {
-    backgroundColor: '#2C3D50',
+    backgroundColor: '#203247ff',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,

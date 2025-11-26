@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   Alert,
   Image,
@@ -25,6 +26,17 @@ interface UserProfile {
 }
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('loggedIn');
+    // (Optional) also clear saved user:
+    // await AsyncStorage.removeItem('user');
+    Alert.alert('Logged out');
+    router.replace('/sign-in');
+  };
+
+
   const [profile, setProfile] = useState<UserProfile>({
     username: 'ClimbingUser',
     bio: 'Just here to send it! 🧗',
@@ -100,7 +112,7 @@ export default function ProfileScreen() {
     setEditedProfile(profile);
     setIsEditModalVisible(false);
   };
-
+  
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -181,6 +193,11 @@ export default function ProfileScreen() {
             <Text style={styles.infoValue}>{profile.favoriteGrade}</Text>
           </View>
         </View>
+
+        {/* Log out */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Edit Profile Modal */}
@@ -434,6 +451,20 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+    logoutButton: {
+    marginTop: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FF6B35',
+  },
+  logoutButtonText: {
+    color: '#FF6B35',
+    fontSize: 16,
+    fontWeight: '600',
   },
   infoSection: {
     gap: 12,

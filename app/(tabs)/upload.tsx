@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
   headerBar: {
     height: 60,
-    backgroundColor: '#2C3D50',
+    backgroundColor: '#ffffffff',
     width: '100%',
   },
   scroll: {
