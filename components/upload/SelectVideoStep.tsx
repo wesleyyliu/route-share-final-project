@@ -29,15 +29,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   uploadCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F6F6F6',
     borderRadius: 12,
     paddingVertical: 90,
     paddingHorizontal: 40,
     alignItems: 'center',
     marginTop: 30,
-    borderWidth: 2,
-    borderColor: '#2C3D50',
-    borderStyle: 'solid',
   },
   uploadIcon: {
     marginBottom: 20,
