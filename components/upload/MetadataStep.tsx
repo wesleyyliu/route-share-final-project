@@ -60,7 +60,7 @@ export default function MetadataStep({
       />
 
       <TouchableOpacity style={styles.annotateButton} onPress={onContinue}>
-        <Text style={styles.annotateButtonText}>annotate</Text>
+        <Text style={styles.annotateButtonText}>Annotate</Text>
       </TouchableOpacity>
     </>
   );

@@ -1,5 +1,7 @@
 import { ClimbMetadata } from '@/types/post';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useState, useRef } from 'react';
 
 interface MetadataDropdownsProps {
   metadata: ClimbMetadata;
@@ -28,34 +30,74 @@ export default function MetadataDropdowns({
   onColorDropdownToggle,
   inModal = false,
 }: MetadataDropdownsProps) {
+  const [locationSearch, setLocationSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const inputRef = useRef<TextInput>(null);
   const dropdownOptionsStyle = inModal ? styles.dropdownOptionsModal : styles.dropdownOptions;
+
+  // Filter location options based on search
+  const filteredLocationOptions = locationOptions.filter(location =>
+    location.toLowerCase().includes(locationSearch.toLowerCase())
+  );
+
+  // Display value: show search text when searching, otherwise show selected location
+  const displayValue = isSearching ? locationSearch : (metadata.location || '');
 
   return (
     <>
-      {/* Location Dropdown */}
+      {/* Location Search */}
       <View style={[styles.dropdownWrapper, { zIndex: 103 }]}>
         <View style={styles.metadataSection}>
           <View style={styles.metadataIcon}>
-            <Text style={styles.iconText}>📍</Text>
+            <MaterialIcons name="place" size={24} color="#2C3D50" />
           </View>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={onLocationDropdownToggle}
-          >
-            <Text style={metadata.location ? styles.metadataValue : styles.metadataPlaceholder}>
-              {metadata.location || 'Add location'}
-            </Text>
-            <Text style={styles.dropdownCaret}>{locationDropdownOpen ? '▲' : '▼'}</Text>
+          <TextInput
+            ref={inputRef}
+            style={styles.searchInput}
+            placeholder="Search"
+            placeholderTextColor="#999"
+            value={displayValue}
+            onChangeText={(text) => {
+              setLocationSearch(text);
+              setIsSearching(true);
+              // Open dropdown when typing
+              if (!locationDropdownOpen) {
+                onLocationDropdownToggle();
+              }
+            }}
+            onFocus={() => {
+              setIsSearching(true);
+              setLocationSearch('');
+              if (!locationDropdownOpen) {
+                onLocationDropdownToggle();
+              }
+            }}
+            onBlur={() => {
+              // Small delay to allow selection to complete
+              setTimeout(() => {
+                setIsSearching(false);
+                setLocationSearch('');
+              }, 200);
+            }}
+          />
+          <TouchableOpacity onPress={onLocationDropdownToggle} style={styles.searchIconButton}>
+            <MaterialIcons name="search" size={20} color="#999" />
           </TouchableOpacity>
         </View>
-        {locationDropdownOpen && (
+        {locationDropdownOpen && filteredLocationOptions.length > 0 && (
           <View style={dropdownOptionsStyle}>
             <ScrollView nestedScrollEnabled style={styles.dropdownScroll}>
-              {locationOptions.map((location) => (
+              {filteredLocationOptions.map((location) => (
                 <TouchableOpacity
                   key={location}
                   style={styles.dropdownOption}
-                  onPress={() => onMetadataChange({ ...metadata, location })}
+                  onPress={() => {
+                    onMetadataChange({ ...metadata, location });
+                    setLocationSearch('');
+                    setIsSearching(false);
+                    inputRef.current?.blur(); // Blur the input to remove cursor
+                    onLocationDropdownToggle();
+                  }}
                 >
                   <Text style={styles.dropdownOptionText}>{location}</Text>
                 </TouchableOpacity>
@@ -69,7 +111,7 @@ export default function MetadataDropdowns({
       <View style={[styles.dropdownWrapper, { zIndex: 102 }]}>
         <View style={styles.metadataSection}>
           <View style={styles.metadataIcon}>
-            <Text style={styles.iconText}>⛰️</Text>
+            <MaterialIcons name="terrain" size={24} color="#2C3D50" />
           </View>
           <TouchableOpacity
             style={styles.dropdownButton}
@@ -102,7 +144,7 @@ export default function MetadataDropdowns({
       <View style={[styles.dropdownWrapper, { zIndex: 101 }]}>
         <View style={styles.metadataSection}>
           <View style={styles.metadataIcon}>
-            <Text style={styles.iconText}>🎨</Text>
+            <MaterialIcons name="palette" size={24} color="#2C3D50" />
           </View>
           <TouchableOpacity
             style={styles.dropdownButton}
@@ -150,6 +192,23 @@ const styles = StyleSheet.create({
   },
   iconText: {
     fontSize: 24,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+  },
+  searchIconButton: {
+    padding: 8,
   },
   dropdownButton: {
     flex: 1,
