@@ -162,6 +162,7 @@ export default function VideoAnnotatorScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps='handled'
       >
         {/* Step 1: Select Video */}
         {workflowStep === 'select' && (

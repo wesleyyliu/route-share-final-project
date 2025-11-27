@@ -1,5 +1,5 @@
 import { ClimbMetadata } from '@/types/post';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Keyboard, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MetadataDropdowns from './MetadataDropdowns';
 
 interface EditMetadataModalProps {
@@ -27,23 +27,32 @@ export default function EditMetadataModal({
   onColorDropdownToggle,
   onClose,
 }: EditMetadataModalProps) {
+  const handleClose = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity style={styles.modalBackButton} onPress={onClose}>
+            <TouchableOpacity style={styles.modalBackButton} onPress={handleClose}>
               <Text style={styles.backButtonText}>←</Text>
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Edit Climb Details</Text>
           </View>
 
-          <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.modalScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps='handled'
+          >
             <MetadataDropdowns
               metadata={metadata}
               onMetadataChange={onMetadataChange}
@@ -56,7 +65,7 @@ export default function EditMetadataModal({
               inModal={true}
             />
 
-            <TouchableOpacity style={styles.modalDoneButton} onPress={onClose}>
+            <TouchableOpacity style={styles.modalDoneButton} onPress={handleClose}>
               <Text style={styles.modalDoneButtonText}>Done</Text>
             </TouchableOpacity>
           </ScrollView>

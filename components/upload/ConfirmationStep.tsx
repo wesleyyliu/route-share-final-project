@@ -51,13 +51,22 @@ export default function ConfirmationStep({
           </TouchableOpacity>
         </View>
         {metadata.location && (
-          <Text style={styles.confirmMetadataText}>📍 {metadata.location}</Text>
+          <View style={styles.metadataRow}>
+            <MaterialIcons name="place" size={20} color="#2C3D50" style={styles.metadataIcon} />
+            <Text style={styles.confirmMetadataText}>{metadata.location}</Text>
+          </View>
         )}
         {metadata.difficulty && (
-          <Text style={styles.confirmMetadataText}>⛰️ {metadata.difficulty}</Text>
+          <View style={styles.metadataRow}>
+            <MaterialIcons name="terrain" size={20} color="#2C3D50" style={styles.metadataIcon} />
+            <Text style={styles.confirmMetadataText}>{metadata.difficulty}</Text>
+          </View>
         )}
         {metadata.color && (
-          <Text style={styles.confirmMetadataText}>🎨 {metadata.color}</Text>
+          <View style={styles.metadataRow}>
+            <MaterialIcons name="palette" size={20} color="#2C3D50" style={styles.metadataIcon} />
+            <Text style={styles.confirmMetadataText}>{metadata.color}</Text>
+          </View>
         )}
       </View>
 
@@ -73,7 +82,7 @@ export default function ConfirmationStep({
       />
 
       <TouchableOpacity style={styles.postButton} onPress={onPost}>
-        <Text style={styles.postButtonText}>post</Text>
+        <Text style={styles.postButtonText}>Post</Text>
       </TouchableOpacity>
     </>
   );
@@ -120,10 +129,18 @@ const styles = StyleSheet.create({
     color: '#FF6B35',
     fontWeight: '600',
   },
+  metadataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  metadataIcon: {
+    marginRight: 8,
+  },
   confirmMetadataText: {
     fontSize: 16,
     color: '#333',
-    marginBottom: 8,
+    flex: 1,
   },
   descriptionInput: {
     borderWidth: 1,

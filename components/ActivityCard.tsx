@@ -1,4 +1,5 @@
 import { LimbAnnotation } from '@/components/VideoAnnotation';
+import { MaterialIcons } from '@expo/vector-icons';
 import { ResizeMode, Video } from 'expo-av';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -55,14 +56,14 @@ export default function ActivityCard({
         </View>
 
         <View style={styles.metadataRow}>
-          <Text style={styles.metadataIcon}>📍</Text>
+          <MaterialIcons name="place" size={16} color="#6B7885" style={styles.metadataIcon} />
           <Text style={styles.metadataText} numberOfLines={1}>
             {location}
           </Text>
         </View>
 
         <View style={styles.metadataRow}>
-          <Text style={styles.metadataIcon}>🪨</Text>
+          <MaterialIcons name="terrain" size={16} color="#6B7885" style={styles.metadataIcon} />
           <Text style={styles.metadataText}>
             {difficulty} {color}
           </Text>
@@ -133,7 +134,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   metadataIcon: {
-    fontSize: 12,
     marginRight: 6,
   },
   metadataText: {

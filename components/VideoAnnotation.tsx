@@ -3,8 +3,11 @@ import { ResizeMode, Video } from 'expo-av';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -73,6 +76,7 @@ export default function VideoAnnotation({
   }>({});
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [annotationComment, setAnnotationComment] = useState('');
+  const [annotationTimestamp, setAnnotationTimestamp] = useState(0); // Locked timestamp for current sequence
   
   // Scrubber drag state
   const [isDraggingScrubber, setIsDraggingScrubber] = useState(false);
@@ -91,6 +95,7 @@ export default function VideoAnnotation({
     setIsAnnotating(true);
     setCurrentLimbIndex(0);
     setSequenceAnnotations({});
+    setAnnotationTimestamp(currentTime); // Lock the timestamp for this annotation sequence
   };
 
   const handleVideoPress = (event: any) => {
@@ -144,7 +149,7 @@ export default function VideoAnnotation({
     if (position) {
       const newAnnotation: LimbAnnotation = {
         id: `${Date.now()}_${currentLimbType}`,
-        timestamp: currentTime,
+        timestamp: annotationTimestamp, // Use locked timestamp instead of currentTime
         limbType: currentLimbType,
         x: position.x,
         y: position.y,
@@ -152,17 +157,15 @@ export default function VideoAnnotation({
       };
 
       onAnnotationsChange([...annotations, newAnnotation]);
-      
-      // Remove from sequenceAnnotations after saving
-      const updatedSequence = { ...sequenceAnnotations };
-      delete updatedSequence[currentLimbType];
-      setSequenceAnnotations(updatedSequence);
+
+      // Keep the annotation in sequenceAnnotations so it remains visible
+      // It will be cleared when the entire sequence finishes
     }
-    
+
     // Clear comment and close modal
     setAnnotationComment('');
     setShowCommentModal(false);
-    
+
     // Move to next limb or finish
     if (currentLimbIndex < LIMB_SEQUENCE.length - 1) {
       setCurrentLimbIndex(currentLimbIndex + 1);
@@ -178,6 +181,7 @@ export default function VideoAnnotation({
     setSequenceAnnotations({});
     setAnnotationComment('');
     setShowCommentModal(false);
+    setAnnotationTimestamp(0); // Reset locked timestamp
   };
 
   const goBackToPreviousLimb = () => {
@@ -192,8 +196,8 @@ export default function VideoAnnotation({
       // Find and remove the annotation for the previous limb at this timestamp
       if (onAnnotationsChange) {
         const filteredAnnotations = annotations.filter(a => {
-          // Keep annotations that are NOT the previous limb at the current timestamp
-          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - currentTime) < 0.5);
+          // Keep annotations that are NOT the previous limb at the locked annotation timestamp
+          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - annotationTimestamp) < 0.5);
         });
         onAnnotationsChange(filteredAnnotations);
       }
@@ -214,11 +218,39 @@ export default function VideoAnnotation({
     setSequenceAnnotations({});
     setAnnotationComment('');
     setShowCommentModal(false);
+    setAnnotationTimestamp(0); // Reset locked timestamp
   };
 
   const deleteAnnotation = (id: string) => {
     if (!onAnnotationsChange) return;
     onAnnotationsChange(annotations.filter(a => a.id !== id));
+  };
+
+  const handleDeleteAnnotations = () => {
+    const annotationsAtTimestamp = annotations.filter(
+      a => Math.abs(a.timestamp - currentTime) < 0.5
+    );
+
+    Alert.alert(
+      'Delete Annotations',
+      `Delete ${annotationsAtTimestamp.length} annotation(s) at this timestamp?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: deleteAnnotationsAtTimestamp
+        }
+      ]
+    );
+  };
+
+  const deleteAnnotationsAtTimestamp = () => {
+    if (!onAnnotationsChange) return;
+    const updatedAnnotations = annotations.filter(
+      a => Math.abs(a.timestamp - currentTime) >= 0.5
+    );
+    onAnnotationsChange(updatedAnnotations);
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
@@ -360,8 +392,8 @@ export default function VideoAnnotation({
           onPress={handleVideoPress}
           disabled={readonly || !isAnnotating}
         >
-          {/* Show existing annotations for current time */}
-          {currentAnnotations.map((annotation) => (
+          {/* Show existing annotations for current time (only when not annotating) */}
+          {!isAnnotating && currentAnnotations.map((annotation) => (
             <View
               key={annotation.id}
               style={[
@@ -462,6 +494,7 @@ export default function VideoAnnotation({
           style={styles.scrubberOverlay}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
+          onResponderTerminationRequest={() => false}
           onResponderGrant={(evt) => {
             setIsDraggingScrubber(true);
             if (videoRef.current) {
@@ -530,11 +563,22 @@ export default function VideoAnnotation({
       </View>
       )}
 
-      {/* Add Hold Button or Sequential Prompt */}
+      {/* Add Hold Button or Delete Button */}
       {!readonly && !isAnnotating && (
-        <TouchableOpacity style={styles.addHoldButton} onPress={startAnnotationSequence}>
-          <Text style={styles.addHoldButtonText}>add hold</Text>
-        </TouchableOpacity>
+        currentAnnotations.length > 0 ? (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteAnnotations}
+          >
+            <Text style={styles.deleteButtonText}>
+              Delete annotations ({currentAnnotations.length})
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.addHoldButton} onPress={startAnnotationSequence}>
+            <Text style={styles.addHoldButtonText}>Add hold</Text>
+          </TouchableOpacity>
+        )
       )}
 
       {/* Sequential Annotation Prompt */}
@@ -567,7 +611,7 @@ export default function VideoAnnotation({
       {/* Done Editing Button */}
       {!readonly && !isAnnotating && onDoneEditing && (
         <TouchableOpacity style={styles.doneButton} onPress={onDoneEditing}>
-          <Text style={styles.doneButtonText}>done editing</Text>
+          <Text style={styles.doneButtonText}>Done editing</Text>
         </TouchableOpacity>
       )}
 
@@ -579,37 +623,43 @@ export default function VideoAnnotation({
         onRequestClose={() => setShowCommentModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <TouchableOpacity style={styles.modalBackButton} onPress={goBackInModal}>
-              <Text style={styles.backButtonText}>←</Text>
-            </TouchableOpacity>
-            
-            <Text style={styles.modalTitle}>
-              leave a comment?
-            </Text>
-            <Text style={styles.modalSubtitle}>
-              {LIMB_LABELS[currentLimbType]}
-            </Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+            style={styles.keyboardAvoidingContainer}
+          >
+            <View style={styles.modalContent}>
+              <TouchableOpacity style={styles.modalBackButton} onPress={goBackInModal}>
+                <Text style={styles.backButtonText}>←</Text>
+              </TouchableOpacity>
 
-            <TextInput
-              key={`comment-${currentLimbIndex}`}
-              style={styles.modalInput}
-              placeholder=""
-              value={annotationComment}
-              onChangeText={setAnnotationComment}
-              multiline
-              autoFocus
-            />
-
-            <TouchableOpacity
-              style={styles.modalNextButton}
-              onPress={saveCurrentLimbAnnotation}
-            >
-              <Text style={styles.modalNextButtonText}>
-                {currentLimbIndex < LIMB_SEQUENCE.length - 1 ? 'next' : 'finish'}
+              <Text style={styles.modalTitle}>
+                leave a comment?
               </Text>
-            </TouchableOpacity>
-          </View>
+              <Text style={styles.modalSubtitle}>
+                {LIMB_LABELS[currentLimbType]}
+              </Text>
+
+              <TextInput
+                key={`comment-${currentLimbIndex}`}
+                style={styles.modalInput}
+                placeholder=""
+                value={annotationComment}
+                onChangeText={setAnnotationComment}
+                multiline
+                autoFocus
+              />
+
+              <TouchableOpacity
+                style={styles.modalNextButton}
+                onPressIn={saveCurrentLimbAnnotation}
+              >
+                <Text style={styles.modalNextButtonText}>
+                  {currentLimbIndex < LIMB_SEQUENCE.length - 1 ? 'Next' : 'Finish'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </View>
@@ -783,6 +833,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  deleteButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  deleteButtonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
   doneButton: {
     backgroundColor: '#E0E0E0',
     paddingVertical: 16,
@@ -859,6 +921,9 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
     justifyContent: 'flex-end',
   },
   modalContent: {
