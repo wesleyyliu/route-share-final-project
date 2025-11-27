@@ -1,5 +1,3 @@
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { MaterialIcons } from '@expo/vector-icons';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
@@ -11,7 +9,7 @@ export default function SelectVideoStep({ onSelectVideo }: SelectVideoStepProps)
   return (
     <>
       <TouchableOpacity style={styles.uploadCard} onPress={onSelectVideo}>
-        <MaterialIcons name="upload" size={64} color="#999" style={styles.uploadIcon} />
+        <MaterialIcons name="upload" size={64} color="#2C3D50" style={styles.uploadIcon} />
         <Text style={styles.uploadText}>Select video from</Text>
         <Text style={styles.uploadText}>camera roll</Text>
       </TouchableOpacity>
@@ -31,21 +29,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   uploadCard: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingVertical: 60,
+    paddingVertical: 90,
+    paddingHorizontal: 40,
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 30,
     borderWidth: 2,
-    borderColor: '#E0E0E0',
-    borderStyle: 'dashed',
+    borderColor: '#2C3D50',
+    borderStyle: 'solid',
   },
   uploadIcon: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   uploadText: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 4,
+    fontSize: 19,
+    color: '#2C3D50',
+    marginBottom: 2,
+    textAlign: 'center',
   },
 });

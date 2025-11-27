@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 30,
     paddingBottom: 100,
   },
   backButton: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
     backgroundColor: 'transparent',
   },
   title: {
@@ -323,9 +323,9 @@ const styles = StyleSheet.create({
   },
   instructions: {
     fontSize: 15,
-    color: '#2C3D50',
+    color: '#666666',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
     lineHeight: 22,
   },
 });
