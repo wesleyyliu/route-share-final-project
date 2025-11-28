@@ -5,18 +5,19 @@ import ConfirmationStep from '@/components/upload/ConfirmationStep';
 import EditMetadataModal from '@/components/upload/EditMetadataModal';
 import MetadataStep from '@/components/upload/MetadataStep';
 import SelectVideoStep from '@/components/upload/SelectVideoStep';
-import VideoAnnotation, { LimbAnnotation } from '@/components/VideoAnnotation';
+import VideoAnnotation, { LimbAnnotation, VideoAnnotationHandle } from '@/components/VideoAnnotation';
 import { ClimbMetadata, ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type WorkflowStep = 'select' | 'metadata' | 'annotate' | 'confirm';
 
 export default function VideoAnnotatorScreen() {
   const router = useRouter();
+  const videoAnnotationRef = useRef<VideoAnnotationHandle>(null);
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('select');
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<LimbAnnotation[]>([]);
@@ -209,13 +210,23 @@ export default function VideoAnnotatorScreen() {
           <>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => setWorkflowStep('metadata')}
+              onPress={() => {
+                // Check if we're in edit mode
+                if (videoAnnotationRef.current?.isInEditMode()) {
+                  // Exit edit mode
+                  videoAnnotationRef.current.exitEditMode();
+                } else {
+                  // Go back to metadata step
+                  setWorkflowStep('metadata');
+                }
+              }}
             >
               <Text style={styles.backButtonText}>←</Text>
             </TouchableOpacity>
 
             <View style={styles.videoContainerWithMargin}>
               <VideoAnnotation
+                ref={videoAnnotationRef}
                 videoUri={videoUri}
                 annotations={annotations}
                 onAnnotationsChange={setAnnotations}

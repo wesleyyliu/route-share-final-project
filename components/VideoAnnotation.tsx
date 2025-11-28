@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { ResizeMode, Video } from 'expo-av';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   Alert,
   Image,
@@ -33,6 +33,12 @@ interface VideoAnnotationProps {
   onAnnotationsChange?: (annotations: LimbAnnotation[]) => void;
   onDoneEditing?: () => void;
   readonly?: boolean;
+  onEditModeChange?: (isEditMode: boolean) => void;
+}
+
+export interface VideoAnnotationHandle {
+  exitEditMode: () => void;
+  isInEditMode: () => boolean;
 }
 
 const LIMB_COLORS = {
@@ -52,13 +58,14 @@ const LIMB_LABELS = {
 // Sequence of limbs to annotate
 const LIMB_SEQUENCE: LimbType[] = ['left_hand', 'right_hand', 'left_foot', 'right_foot'];
 
-export default function VideoAnnotation({
+const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationProps>(({
   videoUri,
   annotations = [],
   onAnnotationsChange,
   onDoneEditing,
   readonly = false,
-}: VideoAnnotationProps) {
+  onEditModeChange,
+}, ref) => {
   const videoRef = useRef<any>(null);
   const scrubberRef = useRef<ScrollView>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -84,18 +91,34 @@ export default function VideoAnnotation({
   const seekTimeoutRef = useRef<number | null>(null);
   const previousLimbIndexRef = useRef(currentLimbIndex);
 
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [swipedAnnotationId, setSwipedAnnotationId] = useState<string | null>(null);
+  const [editingAnnotation, setEditingAnnotation] = useState<LimbAnnotation | null>(null);
+  const [editComment, setEditComment] = useState('');
+
   const currentLimbType = LIMB_SEQUENCE[currentLimbIndex];
 
-  const startAnnotationSequence = () => {
-    // Pause video at current frame
+  const startAnnotationSequence = async () => {
+    // Pause video at current frame and get exact position
     if (videoRef.current) {
-      videoRef.current.pauseAsync();
+      await videoRef.current.pauseAsync();
+      // Get the exact current position after pausing
+      const status = await videoRef.current.getStatusAsync();
+      if (status.isLoaded && typeof status.positionMillis === 'number') {
+        const exactTime = status.positionMillis / 1000;
+        setCurrentTime(exactTime);
+        setAnnotationTimestamp(exactTime); // Lock the exact timestamp for this annotation sequence
+      } else {
+        setAnnotationTimestamp(currentTime);
+      }
+    } else {
+      setAnnotationTimestamp(currentTime);
     }
     setPaused(true);
     setIsAnnotating(true);
     setCurrentLimbIndex(0);
     setSequenceAnnotations({});
-    setAnnotationTimestamp(currentTime); // Lock the timestamp for this annotation sequence
   };
 
   const handleVideoPress = (event: any) => {
@@ -144,6 +167,11 @@ export default function VideoAnnotation({
 
   const saveCurrentLimbAnnotation = () => {
     if (!onAnnotationsChange) return;
+
+    // Require comment if not skipping
+    if (annotationComment.trim() === '') {
+      return;
+    }
 
     const position = sequenceAnnotations[currentLimbType];
     if (position) {
@@ -197,7 +225,7 @@ export default function VideoAnnotation({
       if (onAnnotationsChange) {
         const filteredAnnotations = annotations.filter(a => {
           // Keep annotations that are NOT the previous limb at the locked annotation timestamp
-          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - annotationTimestamp) < 0.5);
+          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - annotationTimestamp) < 0.15);
         });
         onAnnotationsChange(filteredAnnotations);
       }
@@ -226,9 +254,96 @@ export default function VideoAnnotation({
     onAnnotationsChange(annotations.filter(a => a.id !== id));
   };
 
+  const handleEditHold = () => {
+    setIsEditMode(true);
+    onEditModeChange?.(true);
+    if (videoRef.current) {
+      videoRef.current.pauseAsync();
+    }
+    setPaused(true);
+  };
+
+  const exitEditMode = () => {
+    setIsEditMode(false);
+    onEditModeChange?.(false);
+  };
+
+  // Expose methods to parent component
+  useImperativeHandle(ref, () => ({
+    exitEditMode,
+    isInEditMode: () => isEditMode,
+  }));
+
+  const handleDeleteSingleAnnotation = (annotation: LimbAnnotation) => {
+    Alert.alert(
+      'Delete Annotation',
+      `Delete ${LIMB_LABELS[annotation.limbType]} annotation?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (!onAnnotationsChange) return;
+            const updatedAnnotations = annotations.filter(a => a.id !== annotation.id);
+            onAnnotationsChange(updatedAnnotations);
+            setSwipedAnnotationId(null);
+
+            // Check if there are any annotations left at this timestamp
+            const remainingAtTimestamp = updatedAnnotations.filter(
+              a => Math.abs(a.timestamp - currentTime) < 0.15
+            );
+
+            // If no annotations left at this timestamp, exit edit mode
+            if (remainingAtTimestamp.length === 0) {
+              exitEditMode();
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditAnnotationComment = (annotation: LimbAnnotation) => {
+    setEditingAnnotation(annotation);
+    setEditComment(annotation.comment);
+    setSwipedAnnotationId(null);
+  };
+
+  const saveEditedComment = () => {
+    if (!onAnnotationsChange || !editingAnnotation) return;
+
+    const updatedAnnotations = annotations.map(a =>
+      a.id === editingAnnotation.id
+        ? { ...a, comment: editComment }
+        : a
+    );
+    onAnnotationsChange(updatedAnnotations);
+    setEditingAnnotation(null);
+    setEditComment('');
+  };
+
+  const handleDeleteAllAnnotations = () => {
+    Alert.alert(
+      'Delete All Annotations',
+      `Delete all ${currentAnnotations.length} annotation(s)?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: () => {
+            deleteAnnotationsAtTimestamp();
+            exitEditMode();
+          }
+        }
+      ]
+    );
+  };
+
   const handleDeleteAnnotations = () => {
     const annotationsAtTimestamp = annotations.filter(
-      a => Math.abs(a.timestamp - currentTime) < 0.5
+      a => Math.abs(a.timestamp - currentTime) < 0.15
     );
 
     Alert.alert(
@@ -248,7 +363,7 @@ export default function VideoAnnotation({
   const deleteAnnotationsAtTimestamp = () => {
     if (!onAnnotationsChange) return;
     const updatedAnnotations = annotations.filter(
-      a => Math.abs(a.timestamp - currentTime) >= 0.5
+      a => Math.abs(a.timestamp - currentTime) >= 0.15
     );
     onAnnotationsChange(updatedAnnotations);
   };
@@ -330,9 +445,9 @@ export default function VideoAnnotation({
     }
   };
 
-  // Get annotations for current timestamp (within 0.5 second tolerance)
+  // Get annotations for current timestamp (within 0.15 second tolerance)
   const currentAnnotations = annotations.filter(
-    a => Math.abs(a.timestamp - currentTime) < 0.5
+    a => Math.abs(a.timestamp - currentTime) < 0.15
   );
 
   // Scrubber touch handling
@@ -452,8 +567,71 @@ export default function VideoAnnotation({
         </TouchableOpacity>
       </View>
 
+      {/* Edit Mode - Annotation Cards */}
+      {isEditMode && !isAnnotating && (
+        <View style={styles.editModeContainer}>
+          <ScrollView style={styles.annotationsList}>
+            {currentAnnotations.map((annotation) => (
+              <View key={annotation.id} style={styles.annotationCardWrapper}>
+                <View style={styles.annotationCard}>
+                  <View style={styles.annotationCardContent}>
+                    <View style={styles.annotationCardHeader}>
+                      <View style={[styles.limbIndicator, { backgroundColor: LIMB_COLORS[annotation.limbType] }]} />
+                      <Text style={styles.limbTypeText}>{LIMB_LABELS[annotation.limbType]}</Text>
+                    </View>
+                    <Text style={styles.annotationCommentText}>{annotation.comment || 'No comment'}</Text>
+                  </View>
+
+                  {swipedAnnotationId === annotation.id && (
+                    <View style={styles.swipeActions}>
+                      <TouchableOpacity
+                        style={styles.editActionButton}
+                        onPress={() => handleEditAnnotationComment(annotation)}
+                      >
+                        <MaterialIcons name="edit" size={24} color="#FFF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteActionButton}
+                        onPress={() => handleDeleteSingleAnnotation(annotation)}
+                      >
+                        <MaterialIcons name="delete" size={24} color="#FFF" />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  style={styles.swipeTrigger}
+                  onPress={() => setSwipedAnnotationId(swipedAnnotationId === annotation.id ? null : annotation.id)}
+                >
+                  <MaterialIcons
+                    name={swipedAnnotationId === annotation.id ? "chevron-left" : "chevron-right"}
+                    size={24}
+                    color="#999"
+                  />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            style={styles.deleteAllButton}
+            onPress={handleDeleteAllAnnotations}
+          >
+            <Text style={styles.deleteAllButtonText}>Delete all annotations</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.doneEditingButton}
+            onPress={exitEditMode}
+          >
+            <Text style={styles.doneEditingButtonText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Add Drag for Scrubber */}
-      {!isAnnotating && (
+      {!isAnnotating && !isEditMode && (
       <View 
         style={styles.scrubberContainer}
         onLayout={(e) => {
@@ -516,16 +694,37 @@ export default function VideoAnnotation({
           }}
         >
           {/* Progress indicator */}
-          <View 
+          <View
             style={[
               styles.scrubberProgress,
               { width: videoDuration > 0 ? `${(currentTime / videoDuration) * 100}%` : '0%' }
             ]}
             pointerEvents="none"
           />
-          
+
+          {/* Timestamp markers - show one orange line per annotation timestamp */}
+          {!isAnnotating && (() => {
+            // Get unique timestamps (one marker per timestamp, not per annotation)
+            const uniqueTimestamps = Array.from(
+              new Set(annotations.map(a => a.timestamp))
+            );
+
+            return uniqueTimestamps.map((timestamp, index) => (
+              <View
+                key={`timestamp-${timestamp}-${index}`}
+                style={[
+                  styles.timestampMarker,
+                  {
+                    left: videoDuration > 0 ? `${(timestamp / videoDuration) * 100}%` : '0%',
+                  },
+                ]}
+                pointerEvents="none"
+              />
+            ));
+          })()}
+
           {/* Playhead */}
-          <View 
+          <View
             style={[
               styles.playhead,
               { left: videoDuration > 0 ? `${(currentTime / videoDuration) * 100}%` : '0%' }
@@ -546,32 +745,15 @@ export default function VideoAnnotation({
       </View>
       )}
 
-      {/* Annotation Timeline Bar - Below Scrubber */}
-      {!isAnnotating && (
-      <View style={styles.annotationTimelineContainer}>
-        {annotations.map((annotation) => (
-          <View
-            key={annotation.id}
-            style={[
-              styles.annotationTimelineMarker,
-              {
-                left: videoDuration > 0 ? `${(annotation.timestamp / videoDuration) * 100}%` : '0%',
-              },
-            ]}
-          />
-        ))}
-      </View>
-      )}
-
       {/* Add Hold Button or Delete Button */}
-      {!readonly && !isAnnotating && (
+      {!readonly && !isAnnotating && !isEditMode && (
         currentAnnotations.length > 0 ? (
           <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDeleteAnnotations}
+            style={styles.editButton}
+            onPress={handleEditHold}
           >
-            <Text style={styles.deleteButtonText}>
-              Delete annotations ({currentAnnotations.length})
+            <Text style={styles.editButtonText}>
+              Edit hold
             </Text>
           </TouchableOpacity>
         ) : (
@@ -609,7 +791,7 @@ export default function VideoAnnotation({
       )}
 
       {/* Done Editing Button */}
-      {!readonly && !isAnnotating && onDoneEditing && (
+      {!readonly && !isAnnotating && !isEditMode && onDoneEditing && (
         <TouchableOpacity style={styles.doneButton} onPress={onDoneEditing}>
           <Text style={styles.doneButtonText}>Done editing</Text>
         </TouchableOpacity>
@@ -651,8 +833,12 @@ export default function VideoAnnotation({
               />
 
               <TouchableOpacity
-                style={styles.modalNextButton}
+                style={[
+                  styles.modalNextButton,
+                  annotationComment.trim() === '' && styles.modalNextButtonDisabled
+                ]}
                 onPressIn={saveCurrentLimbAnnotation}
+                disabled={annotationComment.trim() === ''}
               >
                 <Text style={styles.modalNextButtonText}>
                   {currentLimbIndex < LIMB_SEQUENCE.length - 1 ? 'Next' : 'Finish'}
@@ -662,9 +848,63 @@ export default function VideoAnnotation({
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* Edit Comment Modal */}
+      <Modal
+        visible={editingAnnotation !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditingAnnotation(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+            style={styles.keyboardAvoidingContainer}
+          >
+            <View style={styles.modalContent}>
+              <TouchableOpacity
+                style={styles.modalBackButton}
+                onPress={() => setEditingAnnotation(null)}
+              >
+                <Text style={styles.backButtonText}>←</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.modalTitle}>
+                Edit comment
+              </Text>
+              <Text style={styles.modalSubtitle}>
+                {editingAnnotation && LIMB_LABELS[editingAnnotation.limbType]}
+              </Text>
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder=""
+                value={editComment}
+                onChangeText={setEditComment}
+                multiline
+                autoFocus
+              />
+
+              <TouchableOpacity
+                style={styles.modalNextButton}
+                onPress={saveEditedComment}
+              >
+                <Text style={styles.modalNextButtonText}>
+                  Save
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
-}
+});
+
+VideoAnnotation.displayName = 'VideoAnnotation';
+
+export default VideoAnnotation;
 
 const styles = StyleSheet.create({
   container: {
@@ -733,7 +973,7 @@ const styles = StyleSheet.create({
     height: 80,
     backgroundColor: '#F5F5F5',
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: 'visible',
     position: 'relative',
   },
   scrubberScroll: {
@@ -775,32 +1015,32 @@ const styles = StyleSheet.create({
   },
   playhead: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
+    top: -10,
+    bottom: -10,
     width: 3,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#000000',
     marginLeft: -1.5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
-    elevation: 5,
+    elevation: 10,
+    zIndex: 10,
   },
-  annotationTimelineContainer: {
-    marginTop: 8,
-    height: 24,
-    backgroundColor: '#e6e6e6',
-    borderRadius: 4,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  annotationTimelineMarker: {
+  timestampMarker: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 3,
-    marginLeft: -1.5,
+    top: -5,
+    bottom: -5,
+    width: 5,
+    marginLeft: -2.5,
     backgroundColor: '#FF6B35',
+    opacity: 0.85,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 1,
+    elevation: 5,
+    zIndex: 5,
   },
   timeDisplay: {
     position: 'absolute',
@@ -833,14 +1073,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  deleteButton: {
-    backgroundColor: '#DC2626',
+  editButton: {
+    backgroundColor: '#FF6B35',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 20,
   },
-  deleteButtonText: {
+  editButtonText: {
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
@@ -969,10 +1209,109 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
+  modalNextButtonDisabled: {
+    backgroundColor: '#CCC',
+    opacity: 0.5,
+  },
   modalNextButtonText: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  editModeContainer: {
+    marginTop: 20,
+  },
+  annotationsList: {
+    maxHeight: 300,
+  },
+  annotationCardWrapper: {
+    flexDirection: 'row',
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  annotationCard: {
+    flex: 1,
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  annotationCardContent: {
+    padding: 16,
+  },
+  annotationCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  limbIndicator: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  limbTypeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2C3D50',
+    textTransform: 'capitalize',
+  },
+  annotationCommentText: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  swipeActions: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'column',
+    width: 60,
+  },
+  editActionButton: {
+    flex: 1,
+    backgroundColor: '#FF6B35',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteActionButton: {
+    flex: 1,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  swipeTrigger: {
+    marginLeft: 8,
+    padding: 8,
+  },
+  deleteAllButton: {
+    backgroundColor: '#DC2626',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  deleteAllButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  doneEditingButton: {
+    backgroundColor: '#E0E0E0',
+    paddingVertical: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  doneEditingButtonText: {
+    color: '#2C3D50',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
