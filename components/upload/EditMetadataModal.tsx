@@ -1,5 +1,5 @@
 import { ClimbMetadata } from '@/types/post';
-import { Keyboard, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MetadataDropdowns from './MetadataDropdowns';
 
 interface EditMetadataModalProps {
@@ -39,7 +39,10 @@ export default function EditMetadataModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <TouchableOpacity style={styles.modalBackButton} onPress={handleClose}>
@@ -70,7 +73,7 @@ export default function EditMetadataModal({
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

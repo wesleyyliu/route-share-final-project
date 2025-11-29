@@ -68,7 +68,8 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
 }, ref) => {
   const videoRef = useRef<any>(null);
   const scrubberRef = useRef<ScrollView>(null);
-  const [currentTime, setCurrentTime] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0); // UI scrubber position
+  const [actualVideoTime, setActualVideoTime] = useState(0); // Actual video playback position
   const [paused, setPaused] = useState(true);
   const [videoLayout, setVideoLayout] = useState({ width: 0, height: 0, x: 0, y: 0 });
   const [videoDuration, setVideoDuration] = useState(0);
@@ -369,10 +370,14 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
-    // Always update time from video when not actively dragging
+    // Always update actual video time
     if (status && typeof status.positionMillis === 'number') {
+      const videoTime = status.positionMillis / 1000;
+      setActualVideoTime(videoTime);
+
+      // Update UI time only when not dragging
       if (!isDraggingScrubber) {
-        setCurrentTime(status.positionMillis / 1000);
+        setCurrentTime(videoTime);
       }
     }
     if (status && typeof status.durationMillis === 'number') {
@@ -438,16 +443,10 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
     }
   };
 
-  const seekTo = async (time: number) => {
-    if (videoRef.current) {
-      await videoRef.current.setPositionAsync(time * 1000);
-      setPaused(true);
-    }
-  };
-
-  // Get annotations for current timestamp (within 0.15 second tolerance)
+  // Get annotations for actual video position (within 0.15 second tolerance)
+  // Use actualVideoTime (not currentTime) to handle keyframe snapping
   const currentAnnotations = annotations.filter(
-    a => Math.abs(a.timestamp - currentTime) < 0.15
+    a => Math.abs(a.timestamp - actualVideoTime) < 0.15
   );
 
   // Scrubber touch handling
@@ -459,16 +458,20 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
       const clampedX = Math.max(0, Math.min(locationX, scrubberLayoutRef.current.width));
       const percentage = clampedX / scrubberLayoutRef.current.width;
       const newTime = percentage * videoDuration;
-      
-      // Update time immediately for visual feedback
+
+      // Update time immediately for visual feedback during drag
       setCurrentTime(newTime);
-      
+
       // Debounce the actual video seek to prevent "Seeking interrupted" errors
       if (seekTimeoutRef.current) {
         clearTimeout(seekTimeoutRef.current);
       }
       seekTimeoutRef.current = setTimeout(() => {
-        seekTo(newTime);
+        // Only seek without updating currentTime (it's already set above)
+        if (videoRef.current) {
+          videoRef.current.setPositionAsync(newTime * 1000);
+          setPaused(true);
+        }
       }, 20); // 20ms debounce
     }
   };
@@ -546,26 +549,28 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
       </View>
 
       {/* Video Controls - Below Video, Above Scrubber */}
-      <View style={styles.videoControls}>
-        <TouchableOpacity
-          style={styles.playPauseButton}
-          onPress={() => {
-            if (paused) {
-              videoRef.current?.playAsync();
-              setPaused(false);
-            } else {
-              videoRef.current?.pauseAsync();
-              setPaused(true);
-            }
-          }}
-        >
-          <MaterialIcons 
-            name={paused ? 'play-arrow' : 'pause'} 
-            size={28} 
-            color="#2C3D50" 
-          />
-        </TouchableOpacity>
-      </View>
+      {!isEditMode && !isAnnotating && (
+        <View style={styles.videoControls}>
+          <TouchableOpacity
+            style={styles.playPauseButton}
+            onPress={() => {
+              if (paused) {
+                videoRef.current?.playAsync();
+                setPaused(false);
+              } else {
+                videoRef.current?.pauseAsync();
+                setPaused(true);
+              }
+            }}
+          >
+            <MaterialIcons
+              name={paused ? 'play-arrow' : 'pause'}
+              size={28}
+              color="#2C3D50"
+            />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Edit Mode - Annotation Cards */}
       {isEditMode && !isAnnotating && (
@@ -573,7 +578,11 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
           <ScrollView style={styles.annotationsList}>
             {currentAnnotations.map((annotation) => (
               <View key={annotation.id} style={styles.annotationCardWrapper}>
-                <View style={styles.annotationCard}>
+                <TouchableOpacity
+                  style={styles.annotationCard}
+                  activeOpacity={0.7}
+                  onPress={() => setSwipedAnnotationId(swipedAnnotationId === annotation.id ? null : annotation.id)}
+                >
                   <View style={styles.annotationCardContent}>
                     <View style={styles.annotationCardHeader}>
                       <View style={[styles.limbIndicator, { backgroundColor: LIMB_COLORS[annotation.limbType] }]} />
@@ -588,27 +597,18 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
                         style={styles.editActionButton}
                         onPress={() => handleEditAnnotationComment(annotation)}
                       >
-                        <MaterialIcons name="edit" size={24} color="#FFF" />
+                        <MaterialIcons name="edit" size={20} color="#FFF" />
+                        <Text style={styles.actionButtonText}>Edit</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={styles.deleteActionButton}
                         onPress={() => handleDeleteSingleAnnotation(annotation)}
                       >
-                        <MaterialIcons name="delete" size={24} color="#FFF" />
+                        <MaterialIcons name="delete" size={20} color="#FFF" />
+                        <Text style={styles.actionButtonText}>Delete</Text>
                       </TouchableOpacity>
                     </View>
                   )}
-                </View>
-
-                <TouchableOpacity
-                  style={styles.swipeTrigger}
-                  onPress={() => setSwipedAnnotationId(swipedAnnotationId === annotation.id ? null : annotation.id)}
-                >
-                  <MaterialIcons
-                    name={swipedAnnotationId === annotation.id ? "chevron-left" : "chevron-right"}
-                    size={24}
-                    color="#999"
-                  />
                 </TouchableOpacity>
               </View>
             ))}
@@ -675,7 +675,8 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
           onResponderTerminationRequest={() => false}
           onResponderGrant={(evt) => {
             setIsDraggingScrubber(true);
-            if (videoRef.current) {
+            // Pause video if it's playing
+            if (videoRef.current && !paused) {
               videoRef.current.pauseAsync();
               setPaused(true);
             }
@@ -804,12 +805,11 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
         animationType="slide"
         onRequestClose={() => setShowCommentModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-            style={styles.keyboardAvoidingContainer}
-          >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.keyboardAvoidingContainer}>
             <View style={styles.modalContent}>
               <TouchableOpacity style={styles.modalBackButton} onPress={goBackInModal}>
                 <Text style={styles.backButtonText}>←</Text>
@@ -845,8 +845,8 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
                 </Text>
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Edit Comment Modal */}
@@ -856,12 +856,11 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
         animationType="slide"
         onRequestClose={() => setEditingAnnotation(null)}
       >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-            style={styles.keyboardAvoidingContainer}
-          >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.keyboardAvoidingContainer}>
             <View style={styles.modalContent}>
               <TouchableOpacity
                 style={styles.modalBackButton}
@@ -895,8 +894,8 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
                 </Text>
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
-        </View>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -1171,8 +1170,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
-    paddingBottom: 40,
-    minHeight: 300,
+    paddingBottom: 24,
   },
   modalBackButton: {
     width: 40,
@@ -1225,15 +1223,14 @@ const styles = StyleSheet.create({
     maxHeight: 300,
   },
   annotationCardWrapper: {
-    flexDirection: 'row',
     marginBottom: 12,
-    alignItems: 'center',
   },
   annotationCard: {
-    flex: 1,
     backgroundColor: '#FFF',
     borderRadius: 8,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1266,28 +1263,36 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   swipeActions: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    flexDirection: 'column',
-    width: 60,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 8,
   },
   editActionButton: {
     flex: 1,
     backgroundColor: '#FF6B35',
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
   },
   deleteActionButton: {
     flex: 1,
     backgroundColor: '#DC2626',
+    paddingVertical: 12,
+    borderRadius: 8,
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    gap: 6,
   },
-  swipeTrigger: {
-    marginLeft: 8,
-    padding: 8,
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   deleteAllButton: {
     backgroundColor: '#DC2626',

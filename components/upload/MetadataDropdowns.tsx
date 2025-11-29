@@ -1,5 +1,5 @@
 import { ClimbMetadata } from '@/types/post';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useState, useRef } from 'react';
 
@@ -15,7 +15,7 @@ interface MetadataDropdownsProps {
   inModal?: boolean;
 }
 
-const locationOptions = ['Movement', 'Tufas', 'Pottruck'];
+const locationOptions = ['Penn Campus Recreation', 'Tufas Boulder Lounge', 'Movement Callowhill', 'Main Line Boulders'];
 const difficultyOptions = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10'];
 const colorOptions = ['Red', 'Blue', 'Green', 'Yellow', 'Black'];
 
@@ -31,7 +31,6 @@ export default function MetadataDropdowns({
   inModal = false,
 }: MetadataDropdownsProps) {
   const [locationSearch, setLocationSearch] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const dropdownOptionsStyle = inModal ? styles.dropdownOptionsModal : styles.dropdownOptions;
 
@@ -41,80 +40,65 @@ export default function MetadataDropdowns({
   );
 
   // Display value: show search text when searching, otherwise show selected location
-  const displayValue = isSearching ? locationSearch : (metadata.location || '');
+  const displayValue = locationSearch || metadata.location || '';
 
   return (
     <>
       {/* Location Search */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 50 : 0}
-        style={{ zIndex: 103 }}
-      >
-        <View style={[styles.dropdownWrapper, { zIndex: 103 }]}>
-          <View style={styles.metadataSection}>
-            <View style={styles.metadataIcon}>
-              <MaterialIcons name="place" size={24} color="#2C3D50" />
-            </View>
-            <TextInput
-              ref={inputRef}
-              style={styles.searchInput}
-              placeholder="Search"
-              placeholderTextColor="#999"
-              value={displayValue}
-              onChangeText={(text) => {
-                setLocationSearch(text);
-                setIsSearching(true);
-                // Open dropdown when typing
-                if (!locationDropdownOpen) {
-                  onLocationDropdownToggle();
-                }
-              }}
-              onFocus={() => {
-                setIsSearching(true);
-                setLocationSearch('');
-                if (!locationDropdownOpen) {
-                  onLocationDropdownToggle();
-                }
-              }}
-              onBlur={() => {
-                // Don't clear immediately - let selection complete
-                setTimeout(() => {
-                  setIsSearching(false);
-                }, 200);
-              }}
-            />
-            <TouchableOpacity onPress={onLocationDropdownToggle} style={styles.searchIconButton}>
-              <MaterialIcons name="search" size={20} color="#999" />
-            </TouchableOpacity>
+      <View style={[styles.dropdownWrapper, { zIndex: 103 }]}>
+        <View style={styles.metadataSection}>
+          <View style={styles.metadataIcon}>
+            <MaterialIcons name="place" size={24} color="#2C3D50" />
           </View>
-          {locationDropdownOpen && filteredLocationOptions.length > 0 && (
-            <View style={dropdownOptionsStyle}>
-              <ScrollView
-                nestedScrollEnabled
-                style={styles.dropdownScroll}
-                keyboardShouldPersistTaps='handled'
-              >
-                {filteredLocationOptions.map((location) => (
-                  <TouchableOpacity
-                    key={location}
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      onMetadataChange({ ...metadata, location });
-                      setLocationSearch('');
-                      setIsSearching(false);
-                      onLocationDropdownToggle();
-                      inputRef.current?.blur(); // Blur the input to remove cursor
-                    }}
-                  >
-                    <Text style={styles.dropdownOptionText}>{location}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+          <TextInput
+            ref={inputRef}
+            style={styles.searchInput}
+            placeholder="Search"
+            placeholderTextColor="#999"
+            value={displayValue}
+            onChangeText={(text) => {
+              setLocationSearch(text);
+              // Open dropdown when typing
+              if (!locationDropdownOpen) {
+                onLocationDropdownToggle();
+              }
+            }}
+            onFocus={() => {
+              setLocationSearch('');
+              if (!locationDropdownOpen) {
+                onLocationDropdownToggle();
+              }
+            }}
+          />
+          <TouchableOpacity onPress={onLocationDropdownToggle} style={styles.searchIconButton}>
+            <MaterialIcons name="search" size={20} color="#999" />
+          </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+        {locationDropdownOpen && filteredLocationOptions.length > 0 && (
+          <View style={dropdownOptionsStyle}>
+            <ScrollView
+              nestedScrollEnabled
+              style={styles.dropdownScroll}
+              keyboardShouldPersistTaps='handled'
+            >
+              {filteredLocationOptions.map((location) => (
+                <TouchableOpacity
+                  key={location}
+                  style={styles.dropdownOption}
+                  onPress={() => {
+                    onMetadataChange({ ...metadata, location });
+                    setLocationSearch('');
+                    onLocationDropdownToggle();
+                    inputRef.current?.blur(); // Blur the input to remove cursor
+                  }}
+                >
+                  <Text style={styles.dropdownOptionText}>{location}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+      </View>
 
       {/* Difficulty Dropdown */}
       <View style={[styles.dropdownWrapper, { zIndex: 102 }]}>

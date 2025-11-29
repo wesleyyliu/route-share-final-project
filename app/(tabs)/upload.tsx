@@ -10,14 +10,15 @@ import { ClimbMetadata, ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Alert, Keyboard, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 type WorkflowStep = 'select' | 'metadata' | 'annotate' | 'confirm';
 
 export default function VideoAnnotatorScreen() {
   const router = useRouter();
   const videoAnnotationRef = useRef<VideoAnnotationHandle>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
   const [workflowStep, setWorkflowStep] = useState<WorkflowStep>('select');
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [annotations, setAnnotations] = useState<LimbAnnotation[]>([]);
@@ -37,6 +38,29 @@ export default function VideoAnnotatorScreen() {
 
   // Edit metadata modal state
   const [showEditMetadataModal, setShowEditMetadataModal] = useState(false);
+
+  // Track keyboard height for padding
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // Auto-scroll when keyboard appears and add padding
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+      // Scroll to bottom when keyboard appears
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    });
+
+    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const pickVideo = async () => {
     // Request permission
@@ -160,8 +184,12 @@ export default function VideoAnnotatorScreen() {
       <View style={styles.headerBar} />
 
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : 100 }
+        ]}
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps='handled'
       >
