@@ -42,6 +42,9 @@ export default function VideoAnnotatorScreen() {
   // Track keyboard height for padding
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  // Track dragging state to disable scroll
+  const [isDraggingAnnotation, setIsDraggingAnnotation] = useState(false);
+
   // Auto-scroll when keyboard appears and add padding
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', (e) => {
@@ -190,6 +193,7 @@ export default function VideoAnnotatorScreen() {
           styles.scrollContent,
           { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 50 : 100 }
         ]}
+        scrollEnabled={!isDraggingAnnotation}
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps='handled'
       >
@@ -259,6 +263,7 @@ export default function VideoAnnotatorScreen() {
                 annotations={annotations}
                 onAnnotationsChange={setAnnotations}
                 onDoneEditing={handleDoneAnnotating}
+                onDraggingChange={setIsDraggingAnnotation}
               />
             </View>
           </>

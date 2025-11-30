@@ -34,6 +34,7 @@ interface VideoAnnotationProps {
   onDoneEditing?: () => void;
   readonly?: boolean;
   onEditModeChange?: (isEditMode: boolean) => void;
+  onDraggingChange?: (isDragging: boolean) => void;
 }
 
 export interface VideoAnnotationHandle {
@@ -65,6 +66,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   onDoneEditing,
   readonly = false,
   onEditModeChange,
+  onDraggingChange,
 }, ref) => {
   const videoRef = useRef<any>(null);
   const scrubberRef = useRef<ScrollView>(null);
@@ -97,6 +99,9 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   const [swipedAnnotationId, setSwipedAnnotationId] = useState<string | null>(null);
   const [editingAnnotation, setEditingAnnotation] = useState<LimbAnnotation | null>(null);
   const [editComment, setEditComment] = useState('');
+  const [draggingAnnotationId, setDraggingAnnotationId] = useState<string | null>(null);
+  const [dragPosition, setDragPosition] = useState<{ x: number; y: number } | null>(null);
+  const dragOffsetRef = useRef<{ x: number; y: number } | null>(null);
 
   const currentLimbType = LIMB_SEQUENCE[currentLimbIndex];
 
@@ -267,6 +272,27 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   const exitEditMode = () => {
     setIsEditMode(false);
     onEditModeChange?.(false);
+    // Clear any dragging state when exiting edit mode
+    setDraggingAnnotationId(null);
+    setDragPosition(null);
+    dragOffsetRef.current = null;
+  };
+
+  const saveMarkerPosition = () => {
+    if (!onAnnotationsChange || !draggingAnnotationId || !dragPosition) return;
+
+    const updatedAnnotations = annotations.map(a =>
+      a.id === draggingAnnotationId
+        ? { ...a, x: dragPosition.x, y: dragPosition.y }
+        : a
+    );
+    onAnnotationsChange(updatedAnnotations);
+
+    // Clear dragging state
+    setDraggingAnnotationId(null);
+    setDragPosition(null);
+    dragOffsetRef.current = null;
+    onDraggingChange?.(false);
   };
 
   // Expose methods to parent component
@@ -484,9 +510,14 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   };
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onStartShouldSetResponder={() => false}
+      onMoveShouldSetResponder={() => isEditMode && draggingAnnotationId !== null}
+      onResponderTerminationRequest={() => false}
+    >
       {/* Video Player with Overlay */}
-      <View 
+      <View
         style={styles.videoWrapper}
         onLayout={(event) => {
           const { width, height, x, y } = event.nativeEvent.layout;
@@ -504,29 +535,105 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
         />
         
         {/* Annotation Overlay */}
-        <TouchableOpacity
+        <View
           style={styles.overlay}
-          activeOpacity={1}
-          onPress={handleVideoPress}
-          disabled={readonly || !isAnnotating}
+          onStartShouldSetResponder={(evt) => {
+            // Handle annotation mode
+            if (isAnnotating && !isEditMode) {
+              return true;
+            }
+            // Handle edit mode - check if touch is on a marker
+            if (isEditMode) {
+              const { locationX, locationY } = evt.nativeEvent;
+              // Check if touch is on any marker
+              for (const annotation of currentAnnotations) {
+                const markerX = (annotation.x / 100) * videoLayout.width;
+                const markerY = (annotation.y / 100) * videoLayout.height;
+                const distance = Math.sqrt(
+                  Math.pow(locationX - markerX, 2) + Math.pow(locationY - markerY, 2)
+                );
+                // If within 20px of marker center, start dragging
+                if (distance < 20) {
+                  setDraggingAnnotationId(annotation.id);
+                  const offsetX = locationX - markerX;
+                  const offsetY = locationY - markerY;
+                  dragOffsetRef.current = { x: offsetX, y: offsetY };
+                  onDraggingChange?.(true);
+                  return true;
+                }
+              }
+            }
+            return false;
+          }}
+          onMoveShouldSetResponder={() => isEditMode && draggingAnnotationId !== null}
+          onResponderTerminationRequest={() => false}
+          onResponderGrant={(evt) => {
+            if (isAnnotating && !isEditMode) {
+              handleVideoPress(evt);
+            }
+          }}
+          onResponderMove={(evt) => {
+            if (isEditMode && draggingAnnotationId) {
+              const { locationX, locationY } = evt.nativeEvent;
+
+              // locationX/locationY are relative to the overlay (video)
+              let newCenterX: number;
+              let newCenterY: number;
+
+              if (dragOffsetRef.current) {
+                newCenterX = locationX - dragOffsetRef.current.x;
+                newCenterY = locationY - dragOffsetRef.current.y;
+              } else {
+                newCenterX = locationX;
+                newCenterY = locationY;
+              }
+
+              // Convert to percentages
+              const xPercent = (newCenterX / videoLayout.width) * 100;
+              const yPercent = (newCenterY / videoLayout.height) * 100;
+
+              // Ensure within bounds
+              const clampedX = Math.max(0, Math.min(100, xPercent));
+              const clampedY = Math.max(0, Math.min(100, yPercent));
+
+              setDragPosition({ x: clampedX, y: clampedY });
+            }
+          }}
+          onResponderRelease={() => {
+            if (isEditMode && draggingAnnotationId) {
+              saveMarkerPosition();
+            }
+          }}
+          onResponderTerminate={() => {
+            if (isEditMode && draggingAnnotationId) {
+              saveMarkerPosition();
+            }
+          }}
         >
           {/* Show existing annotations for current time (only when not annotating) */}
-          {!isAnnotating && currentAnnotations.map((annotation) => (
-            <View
-              key={annotation.id}
-              style={[
-                styles.marker,
-                {
-                  left: `${annotation.x}%`,
-                  top: `${annotation.y}%`,
-                  backgroundColor: LIMB_COLORS[annotation.limbType],
-                },
-              ]}
-              pointerEvents="none"
-            >
-              <View style={[styles.markerRing, { borderColor: LIMB_COLORS[annotation.limbType] }]} />
-            </View>
-          ))}
+          {!isAnnotating && currentAnnotations.map((annotation) => {
+            const isDragging = draggingAnnotationId === annotation.id;
+            const displayX = isDragging && dragPosition ? dragPosition.x : annotation.x;
+            const displayY = isDragging && dragPosition ? dragPosition.y : annotation.y;
+
+            return (
+              <View
+                key={annotation.id}
+                style={[
+                  styles.marker,
+                  {
+                    left: `${displayX}%`,
+                    top: `${displayY}%`,
+                    backgroundColor: LIMB_COLORS[annotation.limbType],
+                  },
+                  isDragging && styles.markerDragging,
+                ]}
+                pointerEvents="none"
+              >
+                <View style={[styles.markerRing, { borderColor: LIMB_COLORS[annotation.limbType] }]} />
+              </View>
+            );
+          })}
 
           {/* Show sequence annotations being placed */}
           {isAnnotating && Object.entries(sequenceAnnotations).map(([limbType, position]) => (
@@ -545,7 +652,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
               <View style={[styles.markerRing, { borderColor: LIMB_COLORS[limbType as LimbType] }]} />
             </View>
           ))}
-        </TouchableOpacity>
+        </View>
       </View>
 
       {/* Video Controls - Below Video, Above Scrubber */}
@@ -938,6 +1045,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     opacity: 0.9,
+  },
+  markerDragging: {
+    opacity: 1,
+    transform: [{ scale: 1.3 }],
+    zIndex: 1000,
   },
   markerRing: {
     width: 32,
