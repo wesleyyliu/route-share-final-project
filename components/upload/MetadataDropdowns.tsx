@@ -1,7 +1,7 @@
 import { ClimbMetadata } from '@/types/post';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface MetadataDropdownsProps {
   metadata: ClimbMetadata;
@@ -17,7 +17,7 @@ interface MetadataDropdownsProps {
 
 const locationOptions = ['Penn Campus Recreation', 'Tufas Boulder Lounge', 'Movement Callowhill', 'Main Line Boulders'];
 const difficultyOptions = ['V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10'];
-const colorOptions = ['Red', 'Blue', 'Green', 'Yellow', 'Black'];
+const colorOptions = ['Red', 'Blue', 'Green', 'Yellow', 'Black', 'Purple', 'White'];
 
 export default function MetadataDropdowns({
   metadata,

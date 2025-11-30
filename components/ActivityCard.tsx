@@ -47,11 +47,19 @@ export default function ActivityCard({
 
       <View style={styles.content}>
         <View style={styles.userRow}>
-          <Image
-            source={avatar ? (typeof avatar === 'string' ? { uri: avatar } : avatar) : require('@/assets/images/default.jpg')}
-            style={styles.avatar}
-            resizeMode="cover"
-          />
+          {avatar ? (
+            <Image
+              source={typeof avatar === 'string' ? { uri: avatar } : avatar}
+              style={styles.avatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.avatarPlaceholder}>
+              <Text style={styles.avatarText}>
+                {username.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <Text style={styles.username}>{username}</Text>
         </View>
 
@@ -110,6 +118,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+  },
+  avatarPlaceholder: {
     width: 28,
     height: 28,
     borderRadius: 14,

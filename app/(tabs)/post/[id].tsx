@@ -1,12 +1,13 @@
 import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Asset } from 'expo-asset';
 import { ResizeMode, Video } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface PostLike {
   id: string;
@@ -42,7 +43,7 @@ const LIMB_LABELS: Record<string, string> = {
 const DEFAULT_POSTS: PostLike[] = [
   {
     id: '1',
-    username: 'Joe Bob',
+    username: 'Sarah Martinez',
     timestamp: '2 hours ago',
     videoUri: require('@/assets/videos/post1.mp4'),
     avatar: require('@/assets/images/snoopy4.png'),
@@ -53,7 +54,7 @@ const DEFAULT_POSTS: PostLike[] = [
   },
   {
     id: '2',
-    username: 'Carter Anderson',
+    username: 'Alex Chen',
     timestamp: '5 hours ago',
     videoUri: require('@/assets/videos/post2.mov'),
     avatar: require('@/assets/images/snoopy2.webp'),
@@ -64,7 +65,7 @@ const DEFAULT_POSTS: PostLike[] = [
   },
   {
     id: '3',
-    username: 'Hillary Clinton',
+    username: 'Jordan Lee',
     timestamp: '1 day ago',
     videoUri: require('@/assets/videos/post1.mp4'),
     avatar: require('@/assets/images/snoopy3.jpeg'),
@@ -75,8 +76,8 @@ const DEFAULT_POSTS: PostLike[] = [
   },
   {
     id: '4',
-    username: 'Bob Job',
-    timestamp: '3 day ago',
+    username: 'Maya Patel',
+    timestamp: '3 days ago',
     videoUri: require('@/assets/videos/post2.mov'),
     avatar: require('@/assets/images/snoopy1.jpg'),
     location: 'Movement Callowhill',
@@ -105,6 +106,8 @@ export default function PostDetail() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [currentUsername, setCurrentUsername] = useState<string>('You');
+  const [showMenu, setShowMenu] = useState(false);
+  const [isUserPost, setIsUserPost] = useState(false);
   const holdListScrollRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const commentInputRef = useRef<TextInput>(null);
@@ -195,6 +198,7 @@ export default function PostDetail() {
         if (defaultPost) {
           if (mounted) {
             setPost(defaultPost);
+            setIsUserPost(false); // This is a hardcoded post
             // For hardcoded posts, use the avatar directly (it's a require() number)
             if (defaultPost.avatar) {
               setProfilePicture(undefined); // Will use the avatar from post.avatar directly
@@ -205,13 +209,15 @@ export default function PostDetail() {
         }
 
         // If not found in defaults, check AsyncStorage for user posts
-        // Load user profile to get profile picture
+        // Load user profile to get profile picture and username
         let userProfilePicture: string | undefined = undefined;
+        let userProfileUsername: string = 'You';
         try {
           const profileJson = await AsyncStorage.getItem('user_profile');
           if (profileJson) {
             const profile = JSON.parse(profileJson);
             userProfilePicture = profile.profilePicture;
+            userProfileUsername = profile.username || 'You';
             if (mounted) {
               setProfilePicture(profile.profilePicture);
             }
@@ -228,7 +234,7 @@ export default function PostDetail() {
             if (mounted) {
               setPost({
                 id: found.id,
-                username: 'You',
+                username: userProfileUsername,
                 createdAt: found.createdAt,
                 videoUri: found.videoUri,
                 location: found.metadata?.location,
@@ -238,6 +244,7 @@ export default function PostDetail() {
                 avatar: userProfilePicture,
                 annotations: found.annotations || [],
               });
+              setIsUserPost(true); // This is a user post
             }
           }
         }
@@ -387,6 +394,45 @@ export default function PostDetail() {
     }
   };
 
+  const handleDeletePost = async () => {
+    setShowMenu(false);
+
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete the post from AsyncStorage
+              const climbPostsJson = await AsyncStorage.getItem('climb_posts');
+              if (climbPostsJson) {
+                const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
+                const updatedPosts = climbPosts.filter((p) => String(p.id) !== String(id));
+                await AsyncStorage.setItem('climb_posts', JSON.stringify(updatedPosts));
+              }
+
+              // Delete associated comments
+              await AsyncStorage.removeItem(`post_comments_${id}`);
+
+              Alert.alert('Success', 'Post deleted successfully');
+              router.back();
+            } catch (e) {
+              console.error('Error deleting post:', e);
+              Alert.alert('Error', 'Failed to delete post');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <KeyboardAvoidingView 
       style={styles.container}
@@ -397,7 +443,42 @@ export default function PostDetail() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backIcon} activeOpacity={0.7}>
           <Text style={styles.backIconText}>←</Text>
         </TouchableOpacity>
+        {isUserPost && (
+          <TouchableOpacity
+            onPress={() => setShowMenu(!showMenu)}
+            style={styles.menuIcon}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="more-vert" size={28} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Menu dropdown */}
+      {showMenu && isUserPost && (
+        <Modal
+          transparent
+          visible={showMenu}
+          onRequestClose={() => setShowMenu(false)}
+          animationType="fade"
+        >
+          <TouchableOpacity
+            style={styles.menuOverlay}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          >
+            <View style={styles.menuDropdown}>
+              <TouchableOpacity
+                style={styles.menuOption}
+                onPress={handleDeletePost}
+              >
+                <MaterialIcons name="delete" size={20} color="#FF3B30" />
+                <Text style={styles.menuOptionTextDelete}>Delete Post</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
 
       <ScrollView 
         ref={scrollViewRef}
@@ -437,7 +518,7 @@ export default function PostDetail() {
           >
             <View style={styles.thumbPreview}>
               {previewUri ? (
-                <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
+                <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="contain" />
               ) : (
                 <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
               )}
@@ -465,19 +546,25 @@ export default function PostDetail() {
       </View>
 
       <View style={styles.userRow}>
-        <Image
-          source={
-            post.avatar
-              ? typeof post.avatar === 'string'
-                ? { uri: post.avatar }
-                : post.avatar
-              : profilePicture
-              ? { uri: profilePicture }
-              : require('@/assets/images/default.jpg')
-          }
-          style={styles.avatar}
-          resizeMode="cover"
-        />
+        {(post.avatar || profilePicture) ? (
+          <Image
+            source={
+              post.avatar
+                ? typeof post.avatar === 'string'
+                  ? { uri: post.avatar }
+                  : post.avatar
+                : { uri: profilePicture }
+            }
+            style={styles.avatar}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>
+              {(post.username || 'User').charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.username}>{post.username || 'User'}</Text>
           <Text style={styles.smallTimestamp}>{post.createdAt ? formatTimestamp(post.createdAt) : post.timestamp || ''}</Text>
@@ -512,15 +599,19 @@ export default function PostDetail() {
         <Text style={styles.sectionTitle}>Comments({comments.length})</Text>
         
         <View style={styles.commentInputContainer}>
-          <Image
-            source={
-              profilePicture
-                ? { uri: profilePicture }
-                : require('@/assets/images/default.jpg')
-            }
-            style={styles.commentAvatar}
-            resizeMode="cover"
-          />
+          {profilePicture ? (
+            <Image
+              source={{ uri: profilePicture }}
+              style={styles.commentAvatar}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.commentAvatarPlaceholder}>
+              <Text style={styles.commentAvatarText}>
+                {currentUsername.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
           <TextInput
             ref={commentInputRef}
             style={styles.commentInput}
@@ -551,15 +642,19 @@ export default function PostDetail() {
         <View style={styles.commentsList}>
           {comments.map((comment) => (
             <View key={comment.id} style={styles.commentItem}>
-              <Image
-                source={
-                  comment.avatar
-                    ? { uri: comment.avatar }
-                    : require('@/assets/images/default.jpg')
-                }
-                style={styles.commentAvatar}
-                resizeMode="cover"
-              />
+              {comment.avatar ? (
+                <Image
+                  source={{ uri: comment.avatar }}
+                  style={styles.commentAvatar}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.commentAvatarPlaceholder}>
+                  <Text style={styles.commentAvatarText}>
+                    {comment.username.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.commentContent}>
                 <View style={styles.commentHeader}>
                   <Text style={styles.commentUsername}>{comment.username}</Text>
@@ -824,9 +919,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 20 },
-  header: { height: 80, backgroundColor: '#2C3D50', paddingTop: 24, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
+  header: { height: 80, backgroundColor: '#2C3D50', paddingTop: 24, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   backIconText: { color: '#fff', fontSize: 28, fontWeight: '600' },
+  menuIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 80, paddingRight: 12 },
+  menuDropdown: { backgroundColor: '#fff', borderRadius: 8, minWidth: 160, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  menuOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, gap: 12 },
+  menuOptionTextDelete: { fontSize: 16, color: '#FF3B30', fontWeight: '500' },
   backButton: { marginTop: 12 },
   backButtonText: { color: '#2C3D50' },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
@@ -850,7 +950,9 @@ const styles = StyleSheet.create({
   annotationLabel: { fontSize: 16, fontWeight: '600' },
   annotationMeta: { fontSize: 14, color: '#666' },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 8 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6E6E6', overflow: 'hidden' },
+  avatar: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
+  avatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2C3D50', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
   username: { fontSize: 18, fontWeight: '700', color: '#111' },
   smallTimestamp: { color: '#888', marginTop: 4 },
   metaCard: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
@@ -860,7 +962,9 @@ const styles = StyleSheet.create({
   commentsSection: { marginTop: 18, paddingHorizontal: 20, flex: 1 },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
   commentInputContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, gap: 8 },
-  commentAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#E6E6E6', overflow: 'hidden' },
+  commentAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden' },
+  commentAvatarPlaceholder: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2C3D50', justifyContent: 'center', alignItems: 'center' },
+  commentAvatarText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
   commentInput: { flex: 1, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, maxHeight: 100, backgroundColor: '#F9F9F9' },
   commentButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#2C3D50', justifyContent: 'center' },
   commentButtonDisabled: { backgroundColor: '#E0E0E0' },

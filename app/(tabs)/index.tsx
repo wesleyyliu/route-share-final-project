@@ -44,8 +44,8 @@ export default function HomeScreen() {
   const defaultPosts: Post[] = [
     {
       id: '1',
-      username: 'Joe Bob',
-      content: 'Just sent my first V5! 🎉',
+      username: 'Sarah_climbs',
+      content: 'Finally sent this project! The crimp at the start was brutal but so rewarding 💪',
       timestamp: '2 hours ago',
       videoUri: require('@/assets/videos/post1.mp4'),
       avatar: require('../../assets/images/snoopy4.png'),
@@ -54,8 +54,8 @@ export default function HomeScreen() {
     },
     {
       id: '2',
-      username: 'Carter Anderson',
-      content: 'Working on crimps at the gym today!',
+      username: 'Alex123',
+      content: 'Working on technique today. These slopers are teaching me patience!',
       timestamp: '5 hours ago',
       videoUri: require('@/assets/videos/post2.mov'),
       avatar: require('../..//assets/images/snoopy2.webp'),
@@ -65,19 +65,19 @@ export default function HomeScreen() {
     },
     {
       id: '3',
-      username: 'Hillary Clinton',
-      content: 'Great session, made lots of progress!',
+      username: 'Jordan Lee',
+      content: 'New route setter at Pottruck is crushing it! This purple problem is so fun',
       timestamp: '1 day ago',
-      videoUri: require('@/assets/videos/post1.mp4'),
+      videoUri: require('@/assets/videos/upload_post.mp4'),
       avatar: require('../..//assets/images/snoopy3.jpeg'),
       location: 'Penn Campus Recreation',
       difficulty: 'V9 Purple'
     },
     {
       id: '4',
-      username: 'Bob Job',
-      content: 'I love this gym!',
-      timestamp: '3 day ago',
+      username: 'MayaLovesClimbing',
+      content: 'Love the new set here! Great variety of holds and creative beta',
+      timestamp: '3 days ago',
       videoUri: require('@/assets/videos/post2.mov'),
       avatar: require('../..//assets/images/snoopy1.jpg'),
       location: 'Movement Callowhill',
@@ -87,6 +87,7 @@ export default function HomeScreen() {
 
   const [posts, setPosts] = useState<Post[]>(defaultPosts);
   const [searchQuery, setSearchQuery] = useState('');
+  const [userProfile, setUserProfile] = useState<{ username: string; profilePicture?: string } | null>(null);
   const colorOptions = [
     'All Colors',
     'Red',
@@ -120,13 +121,21 @@ export default function HomeScreen() {
 
   const loadPosts = async () => {
     try {
+      // Load user profile
+      const profileJson = await AsyncStorage.getItem('user_profile');
+      let profile = null;
+      if (profileJson) {
+        profile = JSON.parse(profileJson);
+        setUserProfile(profile);
+      }
+
       const climbPostsJson = await AsyncStorage.getItem('climb_posts');
       if (climbPostsJson) {
         const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
 
         const userPosts: Post[] = climbPosts.map((cp) => ({
           id: cp.id,
-          username: 'You',
+          username: profile ? profile.username : 'You',
           content: cp.description,
           timestamp: formatTimestamp(cp.createdAt),
           videoUri: cp.videoUri,
@@ -134,6 +143,7 @@ export default function HomeScreen() {
           difficulty: cp.metadata.difficulty,
           color: cp.metadata.color,
           annotations: cp.annotations,
+          avatar: profile?.profilePicture,
         }));
 
         // Merge user posts with default posts
