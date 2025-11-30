@@ -3,6 +3,7 @@ import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbPost } from '@/types/post';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
 import {
   Modal,
@@ -29,6 +30,7 @@ interface Post {
 }
 
 export default function HomeScreen() {
+  const router = useRouter();
   const gyms = [
     'All Gyms',
     'Penn Campus Recreation',
@@ -210,8 +212,8 @@ export default function HomeScreen() {
   }, [posts, selectedGym, searchQuery, selectedGrade, selectedColor]);
 
   const handlePostPress = (postId: string) => {
-    // TODO: Navigate to post detail page
-    console.log('Post pressed:', postId);
+    // Navigate to post detail page
+    router.push({ pathname: '/(tabs)/post/[id]', params: { id: postId } });
   };
 
   return (

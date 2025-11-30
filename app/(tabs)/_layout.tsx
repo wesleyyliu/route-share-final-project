@@ -1,9 +1,6 @@
-import { Tabs } from 'expo-router';
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Tabs } from 'expo-router';
 
 
 export default function TabLayout() {
@@ -46,6 +43,16 @@ export default function TabLayout() {
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="person" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="post/[id]"
+        options={{
+          title: 'Post',
+          href: null, // Hide from tab bar but keep accessible via navigation
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="description" size={size} color={color} />
           ),
         }}
       />
