@@ -19,6 +19,7 @@ interface PostLike {
   avatar?: number | string;
   annotations?: LimbAnnotation[];
   createdAt?: number;
+  description?: string;
 }
 
 const LIMB_LABELS: Record<string, string> = {
@@ -27,6 +28,54 @@ const LIMB_LABELS: Record<string, string> = {
   left_foot: 'Left foot',
   right_foot: 'Right foot',
 };
+
+// Hardcoded default posts that don't require AsyncStorage
+const DEFAULT_POSTS: PostLike[] = [
+  {
+    id: '1',
+    username: 'Joe Bob',
+    timestamp: '2 hours ago',
+    videoUri: require('@/assets/videos/post1.mp4'),
+    avatar: require('@/assets/images/snoopy4.png'),
+    location: 'Penn Campus Recreation',
+    difficulty: 'V5',
+    color: 'Blue',
+    annotations: [],
+  },
+  {
+    id: '2',
+    username: 'Carter Anderson',
+    timestamp: '5 hours ago',
+    videoUri: require('@/assets/videos/post2.mov'),
+    avatar: require('@/assets/images/snoopy2.webp'),
+    location: 'Tufas Boulder Lounge',
+    difficulty: 'V3',
+    color: 'Yellow',
+    annotations: [],
+  },
+  {
+    id: '3',
+    username: 'Hillary Clinton',
+    timestamp: '1 day ago',
+    videoUri: require('@/assets/videos/post1.mp4'),
+    avatar: require('@/assets/images/snoopy3.jpeg'),
+    location: 'Penn Campus Recreation',
+    difficulty: 'V9',
+    color: 'Purple',
+    annotations: [],
+  },
+  {
+    id: '4',
+    username: 'Bob Job',
+    timestamp: '3 day ago',
+    videoUri: require('@/assets/videos/post2.mov'),
+    avatar: require('@/assets/images/snoopy1.jpg'),
+    location: 'Movement Callowhill',
+    difficulty: 'V4',
+    color: 'White',
+    annotations: [],
+  },
+];
 
 export default function PostDetail() {
   const params = useLocalSearchParams();
@@ -43,6 +92,7 @@ export default function PostDetail() {
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [selectedLimb, setSelectedLimb] = useState<string | null>(null);
   const [holdScrollPosition, setHoldScrollPosition] = useState(0);
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
 
   const LIMB_COLORS: Record<string, string> = {
     left_hand: '#FF6B6B',
@@ -68,7 +118,7 @@ export default function PostDetail() {
     return HOLD_COLORS[idx % HOLD_COLORS.length];
   };
 
-  // Load the post from AsyncStorage (or clear loading if id missing)
+  // Load the post from hardcoded defaults first, then AsyncStorage
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -76,6 +126,36 @@ export default function PostDetail() {
         if (!id) {
           if (mounted) setLoading(false);
           return;
+        }
+
+        // First check hardcoded default posts
+        const defaultPost = DEFAULT_POSTS.find((p) => String(p.id) === String(id));
+        if (defaultPost) {
+          if (mounted) {
+            setPost(defaultPost);
+            // For hardcoded posts, use the avatar directly (it's a require() number)
+            if (defaultPost.avatar) {
+              setProfilePicture(undefined); // Will use the avatar from post.avatar directly
+            }
+            setLoading(false);
+          }
+          return;
+        }
+
+        // If not found in defaults, check AsyncStorage for user posts
+        // Load user profile to get profile picture
+        let userProfilePicture: string | undefined = undefined;
+        try {
+          const profileJson = await AsyncStorage.getItem('user_profile');
+          if (profileJson) {
+            const profile = JSON.parse(profileJson);
+            userProfilePicture = profile.profilePicture;
+            if (mounted) {
+              setProfilePicture(profile.profilePicture);
+            }
+          }
+        } catch (e) {
+          console.error('Error loading profile:', e);
         }
 
         const climbPostsJson = await AsyncStorage.getItem('climb_posts');
@@ -92,14 +172,15 @@ export default function PostDetail() {
                 location: found.metadata?.location,
                 difficulty: found.metadata?.difficulty,
                 color: found.metadata?.color,
-                avatar: undefined,
+                description: found.description,
+                avatar: userProfilePicture,
                 annotations: found.annotations || [],
               });
             }
           }
         }
       } catch (e) {
-        console.error('Error loading post from AsyncStorage', e);
+        console.error('Error loading post', e);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -147,6 +228,36 @@ export default function PostDetail() {
     };
   }, [post]);
 
+  // Auto-seek video to selected hold timestamp when it changes or modal opens
+  useEffect(() => {
+    if (!showAnnotatedVideo || !interactiveVideoRef.current || !post) return;
+
+    const seekToTimestamp = async () => {
+      try {
+        const annotations = post.annotations || [];
+        const timestamps = Array.from(new Set(annotations.map(a => a.timestamp))).sort((x: number, y: number) => x - y) as number[];
+        
+        // If no hold is selected, use the first one (or 0 if no holds)
+        const timestampToSeek = visibleHoldTimestamp !== null 
+          ? visibleHoldTimestamp 
+          : (timestamps.length > 0 ? timestamps[0] : 0);
+        
+        await interactiveVideoRef.current?.setPositionAsync(Math.floor(timestampToSeek * 1000));
+        await interactiveVideoRef.current?.pauseAsync();
+      } catch (e) {
+        // ignore seek errors
+        console.log('Error seeking video:', e);
+      }
+    };
+
+    // Small delay to ensure video is loaded
+    const timer = setTimeout(() => {
+      seekToTimestamp();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [visibleHoldTimestamp, showAnnotatedVideo, post]);
+
   // entry overlays will now remain visible until the user opens the interactive modal
   if (loading) {
     return (
@@ -193,16 +304,14 @@ export default function PostDetail() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon}>
-          <Text style={{ color: '#fff' }}>←</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon} activeOpacity={0.7}>
+          <Text style={styles.backIconText}>←</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Top media card matching Figma: two thumbnails side-by-side in dark rounded panel */}
       <View style={styles.mediaCard}>
         <TouchableOpacity style={styles.thumbWrapper} onPress={() => setShowFullVideo(true)} activeOpacity={0.9}>
           <View style={styles.thumbPreview}>
-            {/* small video preview (first-frame) */}
             {previewUri ? (
               <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
             ) : (
@@ -220,12 +329,10 @@ export default function PostDetail() {
           onPress={() => {
             setVisibleHoldTimestamp(uniqueTimestamps.length > 0 ? uniqueTimestamps[0] : null);
             setShowAnnotatedVideo(true);
-            // keep entry overlays visible on this screen per user's request
           }}
           activeOpacity={0.9}
         >
           <View style={styles.thumbPreview}>
-            {/* small video preview (first-frame); no bottom 4 dots */}
             {previewUri ? (
               <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
             ) : (
@@ -253,9 +360,20 @@ export default function PostDetail() {
         </TouchableOpacity>
       </View>
 
-      {/* Avatar + user row */}
       <View style={styles.userRow}>
-        <View style={styles.avatar} />
+        <Image
+          source={
+            post.avatar
+              ? typeof post.avatar === 'string'
+                ? { uri: post.avatar }
+                : post.avatar
+              : profilePicture
+              ? { uri: profilePicture }
+              : require('@/assets/images/default.jpg')
+          }
+          style={styles.avatar}
+          resizeMode="cover"
+        />
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.username}>{post.username || 'User'}</Text>
           <Text style={styles.smallTimestamp}>{post.createdAt ? formatTimestamp(post.createdAt) : post.timestamp || ''}</Text>
@@ -273,15 +391,21 @@ export default function PostDetail() {
         {post.difficulty && (
           <View style={styles.metaRow}>
             <Text style={styles.metaIcon}>🪨</Text>
-            <Text style={styles.metaText}>{post.difficulty}</Text>
+            <Text style={styles.metaText}>{post.difficulty} {post.color}</Text>
           </View>
         )}
       </View>
 
+      {/* Description */}
+      {post.description && (
+        <View style={{ paddingHorizontal: 20, marginTop: 12, marginBottom: 12 }}>
+          <Text style={{ fontSize: 14, color: '#555', lineHeight: 20 }}>{post.description}</Text>
+        </View>
+      )}
+
       {/* Comments */}
       <View style={styles.commentsSection}>
         <Text style={styles.sectionTitle}>Comments(0)</Text>
-        {/* Placeholder: actual comments implementation lives elsewhere */}
       </View>
 
       {/* Full video modal */}
@@ -321,19 +445,15 @@ export default function PostDetail() {
               <Text style={{ fontSize: 24, color: '#666' }}>✕</Text>
             </TouchableOpacity>
 
-            {/* Video on top - fixed */}
             <View style={{ width: '100%', height: 320, marginBottom: 12, borderRadius: 12, overflow: 'hidden' }}>
               <Video
                 ref={interactiveVideoRef}
                 source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
                 style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
-                useNativeControls
                 resizeMode={ResizeMode.CONTAIN}
-                isLooping
-                progressUpdateIntervalMillis={500}
+                shouldPlay={false}
               />
 
-              {/* Overlay annotations (filtered by selected hold when applicable) */}
               <View style={styles.interactiveOverlay} pointerEvents="none">
                 {(
                   (visibleHoldTimestamp != null
@@ -356,9 +476,7 @@ export default function PostDetail() {
               </View>
             </View>
 
-            {/* Scrollable content below video */}
             <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
-              {/* Hold Picker Section - Carousel with 3 visible holds */}
               <View style={{ marginTop: 12, marginBottom: 16 }}>
                 <Text style={{ fontSize: 14, color: '#999', marginBottom: 12, fontWeight: '500', paddingHorizontal: 16 }}>Select Hold</Text>
                 <View style={{ height: 100, justifyContent: 'center' }}>
@@ -376,17 +494,11 @@ export default function PostDetail() {
                     {uniqueTimestamps.map((ts, idx) => (
                       <TouchableOpacity
                         key={`hold-picker-${ts}-${idx}`}
-                        onPress={async () => {
+                        onPress={() => {
                           setVisibleHoldTimestamp(ts);
                           const annotationsForHold = annotations.filter(a => a.timestamp === ts);
                           const limbWithComment = annotationsForHold.find(a => a.comment && a.comment.trim() !== '');
                           setSelectedLimb(limbWithComment ? limbWithComment.limbType : null);
-                          try {
-                            await interactiveVideoRef.current?.setPositionAsync(Math.floor(ts * 1000));
-                            await interactiveVideoRef.current?.pauseAsync();
-                          } catch (e) {
-                            // ignore
-                          }
                         }}
                         style={{
                           width: 80,
@@ -422,7 +534,7 @@ export default function PostDetail() {
                 )}
               </View>
 
-              {/* Limbs grid (2x2) */}
+              {/* Limbs grid */}
               <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
                 <Text style={{ fontWeight: '700', fontSize: 14, color: '#111', marginBottom: 12 }}>Select Limb</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
@@ -526,8 +638,9 @@ export default function PostDetail() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  header: { height: 60, backgroundColor: '#2C3D50', paddingTop: 18, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
-  backIcon: { padding: 8 },
+  header: { height: 80, backgroundColor: '#2C3D50', paddingTop: 24, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
+  backIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  backIconText: { color: '#fff', fontSize: 28, fontWeight: '600' },
   backButton: { marginTop: 12 },
   backButtonText: { color: '#2C3D50' },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
@@ -549,7 +662,7 @@ const styles = StyleSheet.create({
   annotationLabel: { fontSize: 16, fontWeight: '600' },
   annotationMeta: { fontSize: 14, color: '#666' },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 8 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6E6E6' },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6E6E6', overflow: 'hidden' },
   username: { fontSize: 18, fontWeight: '700', color: '#111' },
   smallTimestamp: { color: '#888', marginTop: 4 },
   metaCard: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },

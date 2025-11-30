@@ -42,6 +42,7 @@ export default function PostDetail() {
   const [visibleHoldTimestamp, setVisibleHoldTimestamp] = useState<number | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [selectedLimb, setSelectedLimb] = useState<string | null>(null);
+  const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
 
   const LIMB_COLORS: Record<string, string> = {
     left_hand: '#FF6B6B',
@@ -77,6 +78,21 @@ export default function PostDetail() {
           return;
         }
 
+        // Load user profile to get profile picture
+        let userProfilePicture: string | undefined = undefined;
+        try {
+          const profileJson = await AsyncStorage.getItem('user_profile');
+          if (profileJson) {
+            const profile = JSON.parse(profileJson);
+            userProfilePicture = profile.profilePicture;
+            if (mounted) {
+              setProfilePicture(profile.profilePicture);
+            }
+          }
+        } catch (e) {
+          console.error('Error loading profile:', e);
+        }
+
         const climbPostsJson = await AsyncStorage.getItem('climb_posts');
         if (climbPostsJson) {
           const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
@@ -91,7 +107,7 @@ export default function PostDetail() {
                 location: found.metadata?.location,
                 difficulty: found.metadata?.difficulty,
                 color: found.metadata?.color,
-                avatar: undefined,
+                avatar: userProfilePicture,
                 annotations: found.annotations || [],
               });
             }
@@ -255,7 +271,11 @@ export default function PostDetail() {
 
       {/* Avatar + user row */}
       <View style={styles.userRow}>
-        <View style={styles.avatar} />
+        <Image
+          source={profilePicture ? { uri: profilePicture } : require('@/assets/images/default.jpg')}
+          style={styles.avatar}
+          resizeMode="cover"
+        />
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.username}>{post.username || 'User'}</Text>
           <Text style={styles.smallTimestamp}>{post.createdAt ? formatTimestamp(post.createdAt) : post.timestamp || ''}</Text>
@@ -512,7 +532,7 @@ const styles = StyleSheet.create({
   annotationLabel: { fontSize: 16, fontWeight: '600' },
   annotationMeta: { fontSize: 14, color: '#666' },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 8 },
-  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6E6E6' },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6E6E6', overflow: 'hidden' },
   username: { fontSize: 18, fontWeight: '700', color: '#111' },
   smallTimestamp: { color: '#888', marginTop: 4 },
   metaCard: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
