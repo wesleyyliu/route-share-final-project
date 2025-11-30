@@ -6,7 +6,7 @@ import { ResizeMode, Video } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
-import { Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface PostLike {
   id: string;
@@ -20,6 +20,15 @@ interface PostLike {
   annotations?: LimbAnnotation[];
   createdAt?: number;
   description?: string;
+}
+
+interface Comment {
+  id: string;
+  postId: string;
+  username: string;
+  text: string;
+  createdAt: number;
+  avatar?: string;
 }
 
 const LIMB_LABELS: Record<string, string> = {
@@ -93,6 +102,12 @@ export default function PostDetail() {
   const [selectedLimb, setSelectedLimb] = useState<string | null>(null);
   const [holdScrollPosition, setHoldScrollPosition] = useState(0);
   const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState('');
+  const [currentUsername, setCurrentUsername] = useState<string>('You');
+  const holdListScrollRef = useRef<any>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const commentInputRef = useRef<TextInput>(null);
 
   const LIMB_COLORS: Record<string, string> = {
     left_hand: '#FF6B6B',
@@ -124,8 +139,55 @@ export default function PostDetail() {
     const load = async () => {
       try {
         if (!id) {
-          if (mounted) setLoading(false);
+          if (mounted) {
+            setLoading(false);
+            setComments([]); // Clear comments if no id
+          }
           return;
+        }
+
+        // Reset comments when post id changes
+        if (mounted) {
+          setComments([]);
+          setCommentText('');
+        }
+
+        // Load user profile to get username (needed for comments)
+        let username: string = 'You';
+        try {
+          const profileJson = await AsyncStorage.getItem('user_profile');
+          if (profileJson) {
+            const profile = JSON.parse(profileJson);
+            username = profile.username || 'You';
+            if (mounted) {
+              setCurrentUsername(username);
+            }
+          }
+        } catch (e) {
+          console.error('Error loading profile:', e);
+        }
+
+        // Load comments for this specific post (works for both hardcoded and user posts)
+        try {
+          const commentsJson = await AsyncStorage.getItem(`post_comments_${id}`);
+          if (commentsJson) {
+            const postComments: Comment[] = JSON.parse(commentsJson);
+            // Filter to ensure comments belong to this post
+            const filteredComments = postComments.filter(c => String(c.postId) === String(id));
+            if (mounted) {
+              setComments(filteredComments);
+            }
+          } else {
+            // No comments found for this post, ensure empty array
+            if (mounted) {
+              setComments([]);
+            }
+          }
+        } catch (e) {
+          console.error('Error loading comments:', e);
+          if (mounted) {
+            setComments([]);
+          }
         }
 
         // First check hardcoded default posts
@@ -301,16 +363,56 @@ export default function PostDetail() {
     return `${days} day${days > 1 ? 's' : ''} ago`;
   };
 
+  const handleAddComment = async () => {
+    if (!commentText.trim() || !id) return;
+
+    const newComment: Comment = {
+      id: Date.now().toString(),
+      postId: id,
+      username: currentUsername,
+      text: commentText.trim(),
+      createdAt: Date.now(),
+      avatar: profilePicture,
+    };
+
+    const updatedComments = [...comments, newComment];
+    setComments(updatedComments);
+    setCommentText('');
+    Keyboard.dismiss(); // Dismiss keyboard after posting
+
+    try {
+      await AsyncStorage.setItem(`post_comments_${id}`, JSON.stringify(updatedComments));
+    } catch (e) {
+      console.error('Error saving comment:', e);
+    }
+  };
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+    >
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backIcon} activeOpacity={0.7}>
           <Text style={styles.backIconText}>←</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.mediaCard}>
-        <TouchableOpacity style={styles.thumbWrapper} onPress={() => setShowFullVideo(true)} activeOpacity={0.9}>
+      <ScrollView 
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={true}
+        keyboardDismissMode="on-drag"
+      >
+        <View style={[styles.mediaCard, annotations.length === 0 && styles.mediaCardCentered]}>
+        <TouchableOpacity 
+          style={[styles.thumbWrapper, annotations.length === 0 && styles.thumbWrapperCentered]} 
+          onPress={() => setShowFullVideo(true)} 
+          activeOpacity={0.9}
+        >
           <View style={styles.thumbPreview}>
             {previewUri ? (
               <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
@@ -324,40 +426,42 @@ export default function PostDetail() {
           <Text style={styles.thumbCaption}>Click to view full video</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.thumbWrapper}
-          onPress={() => {
-            setVisibleHoldTimestamp(uniqueTimestamps.length > 0 ? uniqueTimestamps[0] : null);
-            setShowAnnotatedVideo(true);
-          }}
-          activeOpacity={0.9}
-        >
-          <View style={styles.thumbPreview}>
-            {previewUri ? (
-              <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
-            ) : (
-              <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
-            )}
-            {showEntryOverlays && annotations.length > 0 && (
-              <View style={styles.entryOverlay} pointerEvents="none">
-                {annotations.map((a) => (
-                  <View
-                    key={`entry-${a.id}`}
-                    style={[
-                      styles.entryDot,
-                      {
-                        left: `${a.x}%`,
-                        top: `${a.y}%`,
-                        backgroundColor: getHoldColor(a.timestamp),
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
-          </View>
-          <Text style={styles.thumbCaption}>Click to view interactive path</Text>
-        </TouchableOpacity>
+        {annotations.length > 0 && (
+          <TouchableOpacity
+            style={styles.thumbWrapper}
+            onPress={() => {
+              setVisibleHoldTimestamp(uniqueTimestamps.length > 0 ? uniqueTimestamps[0] : null);
+              setShowAnnotatedVideo(true);
+            }}
+            activeOpacity={0.9}
+          >
+            <View style={styles.thumbPreview}>
+              {previewUri ? (
+                <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
+              ) : (
+                <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
+              )}
+              {showEntryOverlays && annotations.length > 0 && (
+                <View style={styles.entryOverlay} pointerEvents="none">
+                  {annotations.map((a) => (
+                    <View
+                      key={`entry-${a.id}`}
+                      style={[
+                        styles.entryDot,
+                        {
+                          left: `${a.x}%`,
+                          top: `${a.y}%`,
+                          backgroundColor: getHoldColor(a.timestamp),
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+            <Text style={styles.thumbCaption}>Click to view interactive path</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.userRow}>
@@ -405,8 +509,69 @@ export default function PostDetail() {
 
       {/* Comments */}
       <View style={styles.commentsSection}>
-        <Text style={styles.sectionTitle}>Comments(0)</Text>
+        <Text style={styles.sectionTitle}>Comments({comments.length})</Text>
+        
+        <View style={styles.commentInputContainer}>
+          <Image
+            source={
+              profilePicture
+                ? { uri: profilePicture }
+                : require('@/assets/images/default.jpg')
+            }
+            style={styles.commentAvatar}
+            resizeMode="cover"
+          />
+          <TextInput
+            ref={commentInputRef}
+            style={styles.commentInput}
+            placeholder="Add a comment..."
+            value={commentText}
+            onChangeText={setCommentText}
+            multiline
+            placeholderTextColor="#999"
+            blurOnSubmit={true}
+            returnKeyType="done"
+            onSubmitEditing={handleAddComment}
+            onFocus={() => {
+              setTimeout(() => {
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 100);
+            }}
+          />
+          <TouchableOpacity
+            onPress={handleAddComment}
+            disabled={!commentText.trim()}
+            style={[styles.commentButton, !commentText.trim() && styles.commentButtonDisabled]}
+          >
+            <Text style={[styles.commentButtonText, !commentText.trim() && styles.commentButtonTextDisabled]}>Post</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Comments list */}
+        <View style={styles.commentsList}>
+          {comments.map((comment) => (
+            <View key={comment.id} style={styles.commentItem}>
+              <Image
+                source={
+                  comment.avatar
+                    ? { uri: comment.avatar }
+                    : require('@/assets/images/default.jpg')
+                }
+                style={styles.commentAvatar}
+                resizeMode="cover"
+              />
+              <View style={styles.commentContent}>
+                <View style={styles.commentHeader}>
+                  <Text style={styles.commentUsername}>{comment.username}</Text>
+                  <Text style={styles.commentTime}>{formatTimestamp(comment.createdAt)}</Text>
+                </View>
+                <Text style={styles.commentText}>{comment.text}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
       </View>
+      </ScrollView>
 
       {/* Full video modal */}
       <Modal visible={showFullVideo} transparent animationType="slide" onRequestClose={() => setShowFullVideo(false)}>
@@ -433,7 +598,7 @@ export default function PostDetail() {
         </View>
       </Modal>
 
-      {/* Interactive path modal (overlay all dots + hold list + limb filters) */}
+      {/* Interactive path modal */}
       <Modal visible={showAnnotatedVideo} transparent animationType="slide" onRequestClose={() => setShowAnnotatedVideo(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { width: screenWidth - 20, height: '90%', flexDirection: 'column' }] }>
@@ -445,7 +610,7 @@ export default function PostDetail() {
               <Text style={{ fontSize: 24, color: '#666' }}>✕</Text>
             </TouchableOpacity>
 
-            <View style={{ width: '100%', height: 320, marginBottom: 12, borderRadius: 12, overflow: 'hidden' }}>
+            <View style={{ width: '100%', height: 350, marginBottom: 12, borderRadius: 12, overflow: 'hidden' }}>
               <Video
                 ref={interactiveVideoRef}
                 source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
@@ -476,168 +641,189 @@ export default function PostDetail() {
               </View>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
-              <View style={{ marginTop: 12, marginBottom: 16 }}>
-                <Text style={{ fontSize: 14, color: '#999', marginBottom: 12, fontWeight: '500', paddingHorizontal: 16 }}>Select Hold</Text>
-                <View style={{ height: 100, justifyContent: 'center' }}>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ paddingHorizontal: 16 }}
-                    snapToInterval={90}
-                    decelerationRate="fast"
-                    scrollEventThrottle={16}
-                    onScroll={(event) => {
-                      setHoldScrollPosition(event.nativeEvent.contentOffset.x);
+            <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 16 }}>
+              <View style={{ width: 120, alignItems: 'center' }}>
+                {uniqueTimestamps.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const newPosition = Math.max(0, holdScrollPosition - 70);
+                      holdListScrollRef.current?.scrollTo({ y: newPosition, animated: true });
+                      setHoldScrollPosition(newPosition);
                     }}
+                    style={{ padding: 8, marginBottom: 4 }}
+                    disabled={holdScrollPosition <= 0}
                   >
-                    {uniqueTimestamps.map((ts, idx) => (
-                      <TouchableOpacity
-                        key={`hold-picker-${ts}-${idx}`}
-                        onPress={() => {
-                          setVisibleHoldTimestamp(ts);
-                          const annotationsForHold = annotations.filter(a => a.timestamp === ts);
-                          const limbWithComment = annotationsForHold.find(a => a.comment && a.comment.trim() !== '');
-                          setSelectedLimb(limbWithComment ? limbWithComment.limbType : null);
-                        }}
-                        style={{
-                          width: 80,
-                          height: 80,
-                          borderRadius: 14,
-                          marginHorizontal: 5,
-                          justifyContent: 'center',
-                          alignItems: 'center',
-                          backgroundColor: visibleHoldTimestamp === ts ? getHoldColor(ts) : '#F0F0F0',
-                          borderWidth: visibleHoldTimestamp === ts ? 3 : 0,
-                          borderColor: '#fff',
-                          opacity: visibleHoldTimestamp === ts ? 1 : 0.5,
-                        }}
-                      >
-                        <Text style={{ fontSize: 28, fontWeight: '700', color: visibleHoldTimestamp === ts ? '#fff' : '#666' }}>
-                          {idx + 1}
-                        </Text>
-                        <Text style={{ fontSize: 10, color: visibleHoldTimestamp === ts ? '#fff' : '#999', marginTop: 4 }}>
-                          {formatTime(ts)}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+                    <Text style={{ fontSize: 20, color: holdScrollPosition > 0 ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>^</Text>
+                  </TouchableOpacity>
+                )}
                 
-                {/* Scroll arrow hints */}
-                {uniqueTimestamps.length > 3 && (
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingHorizontal: 16 }}>
-                    <Text style={{ fontSize: 18, color: holdScrollPosition > 0 ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>←</Text>
-                    <Text style={{ fontSize: 12, color: '#999' }}>Scroll to see more</Text>
-                    <Text style={{ fontSize: 18, color: holdScrollPosition < (uniqueTimestamps.length - 2) * 90 ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>→</Text>
-                  </View>
+                {/* Scrollable hold list */}
+                <ScrollView
+                  ref={holdListScrollRef}
+                  showsVerticalScrollIndicator={false}
+                  style={{ maxHeight: 200, width: '100%' }}
+                  contentContainerStyle={{ alignItems: 'center' }}
+                  scrollEventThrottle={16}
+                  onScroll={(event) => {
+                    setHoldScrollPosition(event.nativeEvent.contentOffset.y);
+                  }}
+                >
+                  {uniqueTimestamps.map((ts, idx) => (
+                    <TouchableOpacity
+                      key={`hold-picker-${ts}-${idx}`}
+                      onPress={() => {
+                        setVisibleHoldTimestamp(ts);
+                        const annotationsForHold = annotations.filter(a => a.timestamp === ts);
+                        const limbWithComment = annotationsForHold.find(a => a.comment && a.comment.trim() !== '');
+                        setSelectedLimb(limbWithComment ? limbWithComment.limbType : null);
+                      }}
+                      style={{
+                        width: 100,
+                        paddingVertical: 12,
+                        paddingHorizontal: 8,
+                        marginBottom: 6,
+                        borderRadius: 8,
+                        backgroundColor: visibleHoldTimestamp === ts ? '#D1D5DB' : '#F5F5F5',
+                        borderWidth: visibleHoldTimestamp === ts ? 2 : 0,
+                        borderColor: '#9CA3AF',
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: '600', color: visibleHoldTimestamp === ts ? '#111' : '#666', textAlign: 'center' }}>
+                        hold {idx + 1}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: visibleHoldTimestamp === ts ? '#555' : '#999', textAlign: 'center', marginTop: 2 }}>
+                        {formatTime(ts)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                
+                {uniqueTimestamps.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      const itemHeight = 70;
+                      const maxScroll = Math.max(0, (uniqueTimestamps.length - 3) * itemHeight);
+                      const newPosition = Math.min(maxScroll, holdScrollPosition + 70);
+                      holdListScrollRef.current?.scrollTo({ y: newPosition, animated: true });
+                      setHoldScrollPosition(newPosition);
+                    }}
+                    style={{ padding: 8, marginTop: 4 }}
+                    disabled={holdScrollPosition >= Math.max(0, (uniqueTimestamps.length - 3) * 70)}
+                  >
+                    <Text style={{ fontSize: 20, color: holdScrollPosition < Math.max(0, (uniqueTimestamps.length - 3) * 70) ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>v</Text>
+                  </TouchableOpacity>
                 )}
               </View>
 
-              {/* Limbs grid */}
-              <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-                <Text style={{ fontWeight: '700', fontSize: 14, color: '#111', marginBottom: 12 }}>Select Limb</Text>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                  {['left_hand', 'right_hand'].map((key) => {
-                    const annotationsForSelectedHold = visibleHoldTimestamp != null
-                      ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
-                      : annotations.filter(a => a.limbType === key);
-                    const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        style={[
-                          styles.limbChip,
-                          {
-                            backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#E8F5E9' : '#F5F5F5'),
-                            borderWidth: selectedLimb === key ? 2 : 0,
-                            borderColor: '#4CAF50',
-                          },
-                        ]}
-                        onPress={() => hasComment && setSelectedLimb(key)}
-                        disabled={!hasComment}
-                      >
-                        <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#2E7D32' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
-                          {LIMB_LABELS[key]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {['left_foot', 'right_foot'].map((key) => {
-                    const annotationsForSelectedHold = visibleHoldTimestamp != null
-                      ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
-                      : annotations.filter(a => a.limbType === key);
-                    const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
-                    return (
-                      <TouchableOpacity
-                        key={key}
-                        style={[
-                          styles.limbChip,
-                          {
-                            backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#E8F5E9' : '#F5F5F5'),
-                            borderWidth: selectedLimb === key ? 2 : 0,
-                            borderColor: '#4CAF50',
-                          },
-                        ]}
-                        onPress={() => hasComment && setSelectedLimb(key)}
-                        disabled={!hasComment}
-                      >
-                        <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#2E7D32' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
-                          {LIMB_LABELS[key]}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+              {/* Right side: Limb buttons in 2x2 grid - centered vertically */}
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ width: '100%' }}>
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                    {['left_hand', 'right_hand'].map((key) => {
+                      const annotationsForSelectedHold = visibleHoldTimestamp != null
+                        ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
+                        : annotations.filter(a => a.limbType === key);
+                      const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          style={[
+                            styles.limbChip,
+                            {
+                              backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF'),
+                              borderWidth: selectedLimb === key ? 2 : 0,
+                              borderColor: '#4CAF50',
+                              opacity: hasComment ? 1 : 0.5,
+                            },
+                          ]}
+                          onPress={() => hasComment && setSelectedLimb(key)}
+                          disabled={!hasComment}
+                        >
+                          <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
+                            {LIMB_LABELS[key]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {['left_foot', 'right_foot'].map((key) => {
+                      const annotationsForSelectedHold = visibleHoldTimestamp != null
+                        ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
+                        : annotations.filter(a => a.limbType === key);
+                      const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          style={[
+                            styles.limbChip,
+                            {
+                              backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF'),
+                              borderWidth: selectedLimb === key ? 2 : 0,
+                              borderColor: '#4CAF50',
+                              opacity: hasComment ? 1 : 0.5,
+                            },
+                          ]}
+                          onPress={() => hasComment && setSelectedLimb(key)}
+                          disabled={!hasComment}
+                        >
+                          <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
+                            {LIMB_LABELS[key]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
+            </View>
 
-              {/* Comments section - Full width card */}
-              <View style={{ paddingHorizontal: 16, marginBottom: 32 }}>
-                {selectedLimb ? (
-                  (() => {
-                    const commentsForSelected = visibleHoldTimestamp != null
-                      ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === selectedLimb)
-                      : annotations.filter(a => a.limbType === selectedLimb);
-                    return commentsForSelected.length > 0 ? (
-                      <View style={{ padding: 16, backgroundColor: '#E8F5E9', borderRadius: 12, borderWidth: 1, borderColor: '#C8E6C9' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                            <Text style={{ fontSize: 20 }}>🧗</Text>
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ fontWeight: '700', color: '#2E7D32', fontSize: 14, marginBottom: 4 }}>
-                              {LIMB_LABELS[selectedLimb]}
-                            </Text>
-                            <Text style={{ color: '#388E3C', fontSize: 14, lineHeight: 20 }}>
-                              {commentsForSelected[0].comment}
-                            </Text>
-                          </View>
+            {/* Comments section */}
+            <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 16 }}>
+              {selectedLimb ? (
+                (() => {
+                  const commentsForSelected = visibleHoldTimestamp != null
+                    ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === selectedLimb)
+                    : annotations.filter(a => a.limbType === selectedLimb);
+                  return commentsForSelected.length > 0 ? (
+                    <View style={{ padding: 16, backgroundColor: '#E8F5E9', borderRadius: 12, borderWidth: 1, borderColor: '#C8E6C9' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                          <Text style={{ fontSize: 20 }}>🧗</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontWeight: '700', color: '#2E7D32', fontSize: 14, marginBottom: 4 }}>
+                            {LIMB_LABELS[selectedLimb]}
+                          </Text>
+                          <Text style={{ color: '#388E3C', fontSize: 14, lineHeight: 20 }}>
+                            {commentsForSelected[0].comment}
+                          </Text>
                         </View>
                       </View>
-                    ) : (
-                      <View style={{ padding: 16, backgroundColor: '#F5F5F5', borderRadius: 12 }}>
-                        <Text style={{ color: '#999', fontSize: 14, textAlign: 'center' }}>No comment for this limb</Text>
-                      </View>
-                    );
-                  })()
-                ) : (
-                  <View style={{ padding: 16, backgroundColor: '#F5F5F5', borderRadius: 12 }}>
-                    <Text style={{ color: '#999', fontSize: 14, textAlign: 'center' }}>Select a limb to view comment</Text>
-                  </View>
-                )}
-              </View>
-            </ScrollView>
+                    </View>
+                  ) : (
+                    <View style={{ padding: 16, backgroundColor: '#F5F5F5', borderRadius: 12 }}>
+                      <Text style={{ color: '#999', fontSize: 14, textAlign: 'center' }}>No comment for this limb</Text>
+                    </View>
+                  );
+                })()
+              ) : (
+                <View style={{ padding: 16, backgroundColor: '#F5F5F5', borderRadius: 12 }}>
+                  <Text style={{ color: '#999', fontSize: 14, textAlign: 'center' }}>Select a limb to view comment</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 20 },
   header: { height: 80, backgroundColor: '#2C3D50', paddingTop: 24, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
   backIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   backIconText: { color: '#fff', fontSize: 28, fontWeight: '600' },
@@ -646,7 +832,9 @@ const styles = StyleSheet.create({
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
   contentRow: { flex: 1 },
   mediaCard: { backgroundColor: '#2F4050', margin: 20, borderRadius: 16, padding: 14, flexDirection: 'row', justifyContent: 'space-between' },
+  mediaCardCentered: { justifyContent: 'center' },
   thumbWrapper: { width: '48%', alignItems: 'center' },
+  thumbWrapperCentered: { width: '100%' },
   thumbPreview: { width: '100%', aspectRatio: 3/4, backgroundColor: '#0f1720', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   playIcon: { color: '#fff', fontSize: 36, opacity: 0.95 },
   annotationDotsRow: { position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', gap: 6 },
@@ -669,8 +857,22 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   metaIcon: { marginRight: 8 },
   metaText: { color: '#344154' },
-  commentsSection: { marginTop: 18, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  commentsSection: { marginTop: 18, paddingHorizontal: 20, flex: 1 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  commentInputContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, gap: 8 },
+  commentAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#E6E6E6', overflow: 'hidden' },
+  commentInput: { flex: 1, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, maxHeight: 100, backgroundColor: '#F9F9F9' },
+  commentButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#2C3D50', justifyContent: 'center' },
+  commentButtonDisabled: { backgroundColor: '#E0E0E0' },
+  commentButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  commentButtonTextDisabled: { color: '#999' },
+  commentsList: { flex: 1 },
+  commentItem: { flexDirection: 'row', marginBottom: 16, gap: 10 },
+  commentContent: { flex: 1 },
+  commentHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 8 },
+  commentUsername: { fontSize: 14, fontWeight: '600', color: '#111' },
+  commentTime: { fontSize: 12, color: '#999' },
+  commentText: { fontSize: 14, color: '#333', lineHeight: 20 },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 12 },
   modalClose: { alignSelf: 'flex-end', padding: 8 },

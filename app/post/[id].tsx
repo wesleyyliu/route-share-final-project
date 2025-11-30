@@ -51,7 +51,6 @@ export default function PostDetail() {
     right_foot: '#95E1D3',
   };
 
-  // colors by hold index (hold 1 -> blue, hold 2 -> yellow, hold 3 -> green, etc.)
   const HOLD_COLORS = ['#3B82F6', '#FBBF24', '#10B981', '#EF4444', '#8B5CF6'];
   const hexToRgba = (hex: string, alpha: number) => {
     const clean = hex.replace('#', '');
@@ -68,7 +67,7 @@ export default function PostDetail() {
     return HOLD_COLORS[idx % HOLD_COLORS.length];
   };
 
-  // Load the post from AsyncStorage (or clear loading if id missing)
+  // Load the post from AsyncStorage
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -126,7 +125,6 @@ export default function PostDetail() {
     };
   }, [id]);
 
-  // Generate a first-frame preview (0.5s) for the video's thumbnail when post is available
   useEffect(() => {
     let mounted = true;
     const genPreview = async () => {
@@ -151,7 +149,6 @@ export default function PostDetail() {
         const { uri: thumb } = await VideoThumbnails.getThumbnailAsync(uri, { time: 500 });
         if (mounted) setPreviewUri(thumb);
       } catch (e) {
-        // don't crash the UI for thumbnail failures
         console.log('Failed to generate preview:', e);
       }
     };
@@ -162,7 +159,6 @@ export default function PostDetail() {
     };
   }, [post]);
 
-  // entry overlays will now remain visible until the user opens the interactive modal
   if (loading) {
     return (
       <View style={styles.container}>
@@ -241,7 +237,6 @@ export default function PostDetail() {
           activeOpacity={0.9}
         >
           <View style={styles.thumbPreview}>
-            {/* small video preview (first-frame); no bottom 4 dots */}
             {previewUri ? (
               <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
             ) : (
@@ -269,7 +264,6 @@ export default function PostDetail() {
         </TouchableOpacity>
       </View>
 
-      {/* Avatar + user row */}
       <View style={styles.userRow}>
         <Image
           source={profilePicture ? { uri: profilePicture } : require('@/assets/images/default.jpg')}
@@ -282,7 +276,6 @@ export default function PostDetail() {
         </View>
       </View>
 
-      {/* Meta card */}
       <View style={styles.metaCard}>
         {post.location && (
           <View style={styles.metaRow}>
@@ -301,10 +294,8 @@ export default function PostDetail() {
       {/* Comments */}
       <View style={styles.commentsSection}>
         <Text style={styles.sectionTitle}>Comments(0)</Text>
-        {/* Placeholder: actual comments implementation lives elsewhere */}
       </View>
 
-      {/* Full video modal */}
       <Modal visible={showFullVideo} transparent animationType="slide" onRequestClose={() => setShowFullVideo(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { width: screenWidth - 40 }] }>
@@ -318,11 +309,9 @@ export default function PostDetail() {
         </View>
       </Modal>
 
-      {/* Interactive path modal (overlay all dots + hold list + limb filters) */}
       <Modal visible={showAnnotatedVideo} transparent animationType="slide" onRequestClose={() => setShowAnnotatedVideo(false)}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { width: screenWidth - 20, height: '90%', flexDirection: 'column' }] }>
-            {/* Video on top - fixed */}
             <View style={{ width: '100%', marginBottom: 12 }}>
               <Video
                 ref={interactiveVideoRef}
@@ -332,7 +321,6 @@ export default function PostDetail() {
                 resizeMode={ResizeMode.CONTAIN}
               />
 
-              {/* Overlay annotations (filtered by selected hold when applicable) */}
               <View style={styles.interactiveOverlay} pointerEvents="none">
                 {(
                   (visibleHoldTimestamp != null
@@ -355,9 +343,7 @@ export default function PostDetail() {
               </View>
             </View>
 
-            {/* Scrollable content below video */}
             <ScrollView showsVerticalScrollIndicator={true} style={{ flex: 1 }}>
-              {/* Hold Picker Section */}
               <View style={{ marginTop: 12, marginBottom: 16, alignItems: 'center' }}>
                 <Text style={{ fontSize: 14, color: '#999', marginBottom: 8, fontWeight: '500' }}>Select Hold</Text>
                 <ScrollView
@@ -405,7 +391,7 @@ export default function PostDetail() {
                 </ScrollView>
               </View>
 
-              {/* Limbs grid (2x2) */}
+              {/* Limbs grid */}
               <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
                 <Text style={{ fontWeight: '700', fontSize: 14, color: '#111', marginBottom: 12 }}>Select Limb</Text>
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
@@ -464,7 +450,7 @@ export default function PostDetail() {
                 </View>
               </View>
 
-              {/* Comments section - Full width card */}
+              {/* Comments section */}
               <View style={{ paddingHorizontal: 16, marginBottom: 32 }}>
                 {selectedLimb ? (
                   (() => {
