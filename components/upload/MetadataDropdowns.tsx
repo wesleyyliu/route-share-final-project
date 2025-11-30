@@ -31,6 +31,7 @@ export default function MetadataDropdowns({
   inModal = false,
 }: MetadataDropdownsProps) {
   const [locationSearch, setLocationSearch] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const dropdownOptionsStyle = inModal ? styles.dropdownOptionsModal : styles.dropdownOptions;
 
@@ -39,8 +40,8 @@ export default function MetadataDropdowns({
     location.toLowerCase().includes(locationSearch.toLowerCase())
   );
 
-  // Display value: show search text when searching, otherwise show selected location
-  const displayValue = locationSearch || metadata.location || '';
+  // Display value: show search text when actively searching, otherwise show selected location
+  const displayValue = isSearching ? locationSearch : (metadata.location || '');
 
   return (
     <>
@@ -57,6 +58,7 @@ export default function MetadataDropdowns({
             placeholderTextColor="#999"
             value={displayValue}
             onChangeText={(text) => {
+              setIsSearching(true);
               setLocationSearch(text);
               // Open dropdown when typing
               if (!locationDropdownOpen) {
@@ -64,10 +66,15 @@ export default function MetadataDropdowns({
               }
             }}
             onFocus={() => {
+              setIsSearching(true);
               setLocationSearch('');
               if (!locationDropdownOpen) {
                 onLocationDropdownToggle();
               }
+            }}
+            onBlur={() => {
+              setIsSearching(false);
+              setLocationSearch('');
             }}
           />
           <TouchableOpacity onPress={onLocationDropdownToggle} style={styles.searchIconButton}>
@@ -87,6 +94,7 @@ export default function MetadataDropdowns({
                   style={styles.dropdownOption}
                   onPress={() => {
                     onMetadataChange({ ...metadata, location });
+                    setIsSearching(false);
                     setLocationSearch('');
                     onLocationDropdownToggle();
                     inputRef.current?.blur(); // Blur the input to remove cursor

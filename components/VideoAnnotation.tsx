@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { G, Path } from 'react-native-svg';
 
 export type LimbType = 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot';
 
@@ -903,12 +904,39 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
           
           <View style={styles.promptContent}>
             <View style={styles.climberIcon}>
-              <Text style={styles.climberEmoji}>🧗</Text>
-              <View 
+              <Svg width={50} height={50} viewBox="0 0 543.7 543.76">
+                <G transform="translate(-35.149,-25.368)">
+                  <Path
+                    d="m 307.88531,378.24075 c -4.81658,1.77753 -10.2066,2.80966 -15.71127,2.80966 -5.90607,0 -11.75479,-0.68808 -17.1448,-2.23626 L 214.1337,518.78217 c -5.56201,12.90161 -20.87192,17.25946 -34.23224,9.74786 -13.30298,-7.5116 -19.61043,-23.96832 -13.87639,-36.8699 l 74.65726,-171.21854 95.18513,0 0,-15.99799 48.16596,-22.42013 c 12.6149,-6.13541 29.01425,4.35788 32.34002,17.7182 l 23.62424,94.72641 c 3.38309,13.41766 -4.81659,27.00735 -18.23425,30.3331 -13.47501,3.38309 -27.12204,-4.81659 -30.44776,-18.23425 l -15.02322,-60.37949 -68.40714,32.05331 z"
+                    fill="#2C3D50"
+                  />
+                  <Path
+                    d="M 351.75076,280.13126 C 456.05301,228.41017 496.47803,51.228218 496.47803,36.434379 l -14.33512,0 C 476.7529,73.361633 431.97003,221.24261 351.75076,264.13327 l 0,15.99799 z"
+                    fill="#2C3D50"
+                  />
+                  <Path
+                    d="m 159.31624,241.36911 c 5.44734,8.54373 16.45671,12.32819 26.20457,8.31436 l 55.16152,-21.61734 0,76.49216 95.18513,0 0,-88.59099 85.32257,-136.527587 c 6.25009,-9.977234 3.38309,-23.165535 -6.70883,-29.587662 -9.97723,-6.250111 -23.16553,-3.325737 -28.78491,6.422127 l -72.4783,115.999702 -43.63608,0.11469 c -2.80969,0 -5.61936,0.45872 -8.42905,1.5482 l -75.40268,29.58764 -38.87681,-58.88862 c -6.3648,-9.86255 -19.61043,-12.78691 -29.58767,-6.42214 -9.97723,6.42214 -12.84426,19.72512 -6.47947,29.70237 l 48.51001,73.45309 z"
+                    fill="#2C3D50"
+                  />
+                  <Path
+                    d="m 281.73807,164.53293 c 20.9866,0 38.01672,-16.91544 38.01672,-37.8447 0,-20.92925 -17.03012,-37.959364 -38.01672,-37.959364 -20.92926,0 -37.95935,17.030114 -37.95935,37.959364 0,20.92926 17.03009,37.8447 37.95935,37.8447"
+                    fill="#2C3D50"
+                  />
+                  <Path
+                    d="m 335.86746,551.81024 0,-170.75982 -15.99798,7.45425 0,163.30557 15.99798,0 z"
+                    fill="#2C3D50"
+                  />
+                </G>
+              </Svg>
+              <View
                 style={[
                   styles.limbHighlight,
+                  currentLimbType === 'left_hand' && styles.limbHighlightLeftHand,
+                  currentLimbType === 'right_hand' && styles.limbHighlightRightHand,
+                  currentLimbType === 'left_foot' && styles.limbHighlightLeftFoot,
+                  currentLimbType === 'right_foot' && styles.limbHighlightRightFoot,
                   { backgroundColor: LIMB_COLORS[currentLimbType] }
-                ]} 
+                ]}
               />
             </View>
             <Text style={styles.promptText}>
@@ -1263,17 +1291,28 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     position: 'relative',
   },
-  climberEmoji: {
-    fontSize: 50,
-  },
   limbHighlight: {
     position: 'absolute',
     width: 20,
     height: 20,
     borderRadius: 10,
-    top: 10,
-    right: 15,
     opacity: 0.8,
+  },
+  limbHighlightLeftHand: {
+    top: 18,
+    left: 12,
+  },
+  limbHighlightRightHand: {
+    top: 8,
+    right: 19,
+  },
+  limbHighlightLeftFoot: {
+    bottom: 8,
+    left: 18,
+  },
+  limbHighlightRightFoot: {
+    bottom: 20,
+    right: 18,
   },
   promptText: {
     fontSize: 18,
