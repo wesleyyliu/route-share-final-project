@@ -106,20 +106,21 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   const currentLimbType = LIMB_SEQUENCE[currentLimbIndex];
 
   const startAnnotationSequence = async () => {
-    // Pause video at current frame and get exact position
+    // Pause video and lock the annotation timestamp
     if (videoRef.current) {
       await videoRef.current.pauseAsync();
-      // Get the exact current position after pausing
+      // Get the exact video position after pausing
       const status = await videoRef.current.getStatusAsync();
       if (status.isLoaded && typeof status.positionMillis === 'number') {
         const exactTime = status.positionMillis / 1000;
+        setAnnotationTimestamp(exactTime);
         setCurrentTime(exactTime);
-        setAnnotationTimestamp(exactTime); // Lock the exact timestamp for this annotation sequence
+        setActualVideoTime(exactTime);
       } else {
-        setAnnotationTimestamp(currentTime);
+        setAnnotationTimestamp(actualVideoTime);
       }
     } else {
-      setAnnotationTimestamp(currentTime);
+      setAnnotationTimestamp(actualVideoTime);
     }
     setPaused(true);
     setIsAnnotating(true);
@@ -231,7 +232,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
       if (onAnnotationsChange) {
         const filteredAnnotations = annotations.filter(a => {
           // Keep annotations that are NOT the previous limb at the locked annotation timestamp
-          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - annotationTimestamp) < 0.15);
+          return !(a.limbType === previousLimbType && Math.abs(a.timestamp - annotationTimestamp) < 0.3);
         });
         onAnnotationsChange(filteredAnnotations);
       }
@@ -318,7 +319,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
 
             // Check if there are any annotations left at this timestamp
             const remainingAtTimestamp = updatedAnnotations.filter(
-              a => Math.abs(a.timestamp - currentTime) < 0.15
+              a => Math.abs(a.timestamp - currentTime) < 0.3
             );
 
             // If no annotations left at this timestamp, exit edit mode
@@ -370,7 +371,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
 
   const handleDeleteAnnotations = () => {
     const annotationsAtTimestamp = annotations.filter(
-      a => Math.abs(a.timestamp - currentTime) < 0.15
+      a => Math.abs(a.timestamp - currentTime) < 0.3
     );
 
     Alert.alert(
@@ -390,18 +391,18 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
   const deleteAnnotationsAtTimestamp = () => {
     if (!onAnnotationsChange) return;
     const updatedAnnotations = annotations.filter(
-      a => Math.abs(a.timestamp - currentTime) >= 0.15
+      a => Math.abs(a.timestamp - currentTime) >= 0.3
     );
     onAnnotationsChange(updatedAnnotations);
   };
 
   const onPlaybackStatusUpdate = (status: any) => {
-    // Always update actual video time
+    // Always update actualVideoTime to track true video position
     if (status && typeof status.positionMillis === 'number') {
       const videoTime = status.positionMillis / 1000;
       setActualVideoTime(videoTime);
 
-      // Update UI time only when not dragging
+      // Only sync currentTime when not dragging
       if (!isDraggingScrubber) {
         setCurrentTime(videoTime);
       }
@@ -469,10 +470,10 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
     }
   };
 
-  // Get annotations for actual video position (within 0.15 second tolerance)
-  // Use actualVideoTime (not currentTime) to handle keyframe snapping
+  // Get annotations for the current video position (within 0.3 second tolerance)
+  // Uses actualVideoTime to handle keyframe snapping
   const currentAnnotations = annotations.filter(
-    a => Math.abs(a.timestamp - actualVideoTime) < 0.15
+    a => Math.abs(a.timestamp - actualVideoTime) < 0.3
   );
 
   // Scrubber touch handling
@@ -485,7 +486,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
       const percentage = clampedX / scrubberLayoutRef.current.width;
       const newTime = percentage * videoDuration;
 
-      // Update time immediately for visual feedback during drag
+      // Update currentTime for visual feedback
       setCurrentTime(newTime);
 
       // Debounce the actual video seek to prevent "Seeking interrupted" errors
@@ -493,7 +494,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
         clearTimeout(seekTimeoutRef.current);
       }
       seekTimeoutRef.current = setTimeout(() => {
-        // Only seek without updating currentTime (it's already set above)
+        // Seek - actualVideoTime will be updated by onPlaybackStatusUpdate
         if (videoRef.current) {
           videoRef.current.setPositionAsync(newTime * 1000);
           setPaused(true);
@@ -794,11 +795,33 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
               handleScrubberTouch(evt.nativeEvent.locationX);
             }
           }}
-          onResponderRelease={() => {
+          onResponderRelease={async () => {
             setIsDraggingScrubber(false);
+            // Sync currentTime to actual video position after drag ends
+            if (videoRef.current) {
+              setTimeout(async () => {
+                const status = await videoRef.current.getStatusAsync();
+                if (status.isLoaded && typeof status.positionMillis === 'number') {
+                  const actualTime = status.positionMillis / 1000;
+                  setCurrentTime(actualTime);
+                  setActualVideoTime(actualTime);
+                }
+              }, 100);
+            }
           }}
-          onResponderTerminate={() => {
+          onResponderTerminate={async () => {
             setIsDraggingScrubber(false);
+            // Sync currentTime to actual video position after drag ends
+            if (videoRef.current) {
+              setTimeout(async () => {
+                const status = await videoRef.current.getStatusAsync();
+                if (status.isLoaded && typeof status.positionMillis === 'number') {
+                  const actualTime = status.positionMillis / 1000;
+                  setCurrentTime(actualTime);
+                  setActualVideoTime(actualTime);
+                }
+              }, 100);
+            }
           }}
         >
           {/* Progress indicator */}
@@ -853,7 +876,7 @@ const VideoAnnotation = React.forwardRef<VideoAnnotationHandle, VideoAnnotationP
       </View>
       )}
 
-      {/* Add Hold Button or Delete Button */}
+      {/* Add Hold Button or Edit Hold Button */}
       {!readonly && !isAnnotating && !isEditMode && (
         currentAnnotations.length > 0 ? (
           <TouchableOpacity
