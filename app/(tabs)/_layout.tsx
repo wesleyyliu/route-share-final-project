@@ -56,6 +56,16 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="post/interactive/[id]"
+        options={{
+          title: 'Interactive',
+          href: null, // Hide from tab bar but keep accessible via navigation
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="touch-app" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

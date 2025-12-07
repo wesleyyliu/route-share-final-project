@@ -1,10 +1,10 @@
 import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbPost } from '@/types/post';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Asset } from 'expo-asset';
 import { ResizeMode, Video } from 'expo-av';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -31,13 +31,6 @@ interface Comment {
   createdAt: number;
   avatar?: string;
 }
-
-const LIMB_LABELS: Record<string, string> = {
-  left_hand: 'Left hand',
-  right_hand: 'Right hand',
-  left_foot: 'Left foot',
-  right_foot: 'Right foot',
-};
 
 // Hardcoded default posts that don't require AsyncStorage
 const DEFAULT_POSTS: PostLike[] = [
@@ -94,21 +87,15 @@ export default function PostDetail() {
   const [post, setPost] = useState<PostLike | null>(null);
   const [loading, setLoading] = useState(true);
   const [showFullVideo, setShowFullVideo] = useState(false);
-  const [showAnnotatedVideo, setShowAnnotatedVideo] = useState(false);
   const screenWidth = Dimensions.get('window').width;
-  const interactiveVideoRef = useRef<any>(null);
   const [showEntryOverlays, setShowEntryOverlays] = useState(true);
-  const [visibleHoldTimestamp, setVisibleHoldTimestamp] = useState<number | null>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
-  const [selectedLimb, setSelectedLimb] = useState<string | null>(null);
-  const [holdScrollPosition, setHoldScrollPosition] = useState(0);
   const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [currentUsername, setCurrentUsername] = useState<string>('You');
   const [showMenu, setShowMenu] = useState(false);
   const [isUserPost, setIsUserPost] = useState(false);
-  const holdListScrollRef = useRef<any>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const commentInputRef = useRef<TextInput>(null);
 
@@ -297,36 +284,6 @@ export default function PostDetail() {
     };
   }, [post]);
 
-  // Auto-seek video to selected hold timestamp when it changes or modal opens
-  useEffect(() => {
-    if (!showAnnotatedVideo || !interactiveVideoRef.current || !post) return;
-
-    const seekToTimestamp = async () => {
-      try {
-        const annotations = post.annotations || [];
-        const timestamps = Array.from(new Set(annotations.map(a => a.timestamp))).sort((x: number, y: number) => x - y) as number[];
-        
-        // If no hold is selected, use the first one (or 0 if no holds)
-        const timestampToSeek = visibleHoldTimestamp !== null 
-          ? visibleHoldTimestamp 
-          : (timestamps.length > 0 ? timestamps[0] : 0);
-        
-        await interactiveVideoRef.current?.setPositionAsync(Math.floor(timestampToSeek * 1000));
-        await interactiveVideoRef.current?.pauseAsync();
-      } catch (e) {
-        // ignore seek errors
-        console.log('Error seeking video:', e);
-      }
-    };
-
-    // Small delay to ensure video is loaded
-    const timer = setTimeout(() => {
-      seekToTimestamp();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [visibleHoldTimestamp, showAnnotatedVideo, post]);
-
   // entry overlays will now remain visible until the user opens the interactive modal
   if (loading) {
     return (
@@ -349,12 +306,6 @@ export default function PostDetail() {
 
   const annotations = post.annotations || [];
   const uniqueTimestamps = Array.from(new Set(annotations.map(a => a.timestamp))).sort((x: number, y: number) => x - y) as number[];
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
 
   const formatTimestamp = (timestamp?: number) => {
     if (!timestamp) return '';
@@ -508,40 +459,38 @@ export default function PostDetail() {
         </TouchableOpacity>
 
         {annotations.length > 0 && (
-          <TouchableOpacity
-            style={styles.thumbWrapper}
-            onPress={() => {
-              setVisibleHoldTimestamp(uniqueTimestamps.length > 0 ? uniqueTimestamps[0] : null);
-              setShowAnnotatedVideo(true);
-            }}
-            activeOpacity={0.9}
-          >
-            <View style={styles.thumbPreview}>
-              {previewUri ? (
-                <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="contain" />
-              ) : (
-                <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
-              )}
-              {showEntryOverlays && annotations.length > 0 && (
-                <View style={styles.entryOverlay} pointerEvents="none">
-                  {annotations.map((a) => (
-                    <View
-                      key={`entry-${a.id}`}
-                      style={[
-                        styles.entryDot,
-                        {
-                          left: `${a.x}%`,
-                          top: `${a.y}%`,
-                          backgroundColor: getHoldColor(a.timestamp),
-                        },
-                      ]}
-                    />
-                  ))}
-                </View>
-              )}
-            </View>
-            <Text style={styles.thumbCaption}>Click to view interactive path</Text>
-          </TouchableOpacity>
+          <Link href={`/(tabs)/post/interactive/${id}`} asChild>
+            <TouchableOpacity
+              style={styles.thumbWrapper}
+              activeOpacity={0.9}
+            >
+              <View style={styles.thumbPreview}>
+                {previewUri ? (
+                  <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="contain" />
+                ) : (
+                  <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
+                )}
+                {showEntryOverlays && annotations.length > 0 && (
+                  <View style={styles.entryOverlay} pointerEvents="none">
+                    {annotations.map((a) => (
+                      <View
+                        key={`entry-${a.id}`}
+                        style={[
+                          styles.entryDot,
+                          {
+                            left: `${a.x}%`,
+                            top: `${a.y}%`,
+                            backgroundColor: getHoldColor(a.timestamp),
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
+              <Text style={styles.thumbCaption}>Click to view interactive path</Text>
+            </TouchableOpacity>
+          </Link>
         )}
       </View>
 
@@ -693,224 +642,6 @@ export default function PostDetail() {
         </View>
       </Modal>
 
-      {/* Interactive path modal */}
-      <Modal visible={showAnnotatedVideo} transparent animationType="slide" onRequestClose={() => setShowAnnotatedVideo(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { width: screenWidth - 20, height: '90%', flexDirection: 'column' }] }>
-            {/* Close button */}
-            <TouchableOpacity 
-              onPress={() => setShowAnnotatedVideo(false)} 
-              style={{ alignSelf: 'flex-end', padding: 12, marginBottom: 8, zIndex: 10 }}
-            >
-              <Text style={{ fontSize: 24, color: '#666' }}>✕</Text>
-            </TouchableOpacity>
-
-            <View style={{ width: '100%', height: 350, marginBottom: 12, borderRadius: 12, overflow: 'hidden' }}>
-              <Video
-                ref={interactiveVideoRef}
-                source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
-                style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={false}
-              />
-
-              <View style={styles.interactiveOverlay} pointerEvents="none">
-                {(
-                  (visibleHoldTimestamp != null
-                    ? annotations.filter((a) => a.timestamp === visibleHoldTimestamp)
-                    : annotations
-                  )
-                ).map((a) => (
-                  <View
-                    key={a.id}
-                    style={[
-                      styles.interactiveDot,
-                      {
-                        left: `${a.x}%`,
-                        top: `${a.y}%`,
-                        backgroundColor: getHoldColor(a.timestamp),
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-            </View>
-
-            <View style={{ flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 16 }}>
-              <View style={{ width: 120, alignItems: 'center' }}>
-                {uniqueTimestamps.length > 0 && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      const newPosition = Math.max(0, holdScrollPosition - 70);
-                      holdListScrollRef.current?.scrollTo({ y: newPosition, animated: true });
-                      setHoldScrollPosition(newPosition);
-                    }}
-                    style={{ padding: 8, marginBottom: 4 }}
-                    disabled={holdScrollPosition <= 0}
-                  >
-                    <Text style={{ fontSize: 20, color: holdScrollPosition > 0 ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>^</Text>
-                  </TouchableOpacity>
-                )}
-                
-                {/* Scrollable hold list */}
-                <ScrollView
-                  ref={holdListScrollRef}
-                  showsVerticalScrollIndicator={false}
-                  style={{ maxHeight: 200, width: '100%' }}
-                  contentContainerStyle={{ alignItems: 'center' }}
-                  scrollEventThrottle={16}
-                  onScroll={(event) => {
-                    setHoldScrollPosition(event.nativeEvent.contentOffset.y);
-                  }}
-                >
-                  {uniqueTimestamps.map((ts, idx) => (
-                    <TouchableOpacity
-                      key={`hold-picker-${ts}-${idx}`}
-                      onPress={() => {
-                        setVisibleHoldTimestamp(ts);
-                        const annotationsForHold = annotations.filter(a => a.timestamp === ts);
-                        const limbWithComment = annotationsForHold.find(a => a.comment && a.comment.trim() !== '');
-                        setSelectedLimb(limbWithComment ? limbWithComment.limbType : null);
-                      }}
-                      style={{
-                        width: 100,
-                        paddingVertical: 12,
-                        paddingHorizontal: 8,
-                        marginBottom: 6,
-                        borderRadius: 8,
-                        backgroundColor: visibleHoldTimestamp === ts ? '#D1D5DB' : '#F5F5F5',
-                        borderWidth: visibleHoldTimestamp === ts ? 2 : 0,
-                        borderColor: '#9CA3AF',
-                      }}
-                    >
-                      <Text style={{ fontSize: 14, fontWeight: '600', color: visibleHoldTimestamp === ts ? '#111' : '#666', textAlign: 'center' }}>
-                        hold {idx + 1}
-                      </Text>
-                      <Text style={{ fontSize: 11, color: visibleHoldTimestamp === ts ? '#555' : '#999', textAlign: 'center', marginTop: 2 }}>
-                        {formatTime(ts)}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-                
-                {uniqueTimestamps.length > 0 && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      const itemHeight = 70;
-                      const maxScroll = Math.max(0, (uniqueTimestamps.length - 3) * itemHeight);
-                      const newPosition = Math.min(maxScroll, holdScrollPosition + 70);
-                      holdListScrollRef.current?.scrollTo({ y: newPosition, animated: true });
-                      setHoldScrollPosition(newPosition);
-                    }}
-                    style={{ padding: 8, marginTop: 4 }}
-                    disabled={holdScrollPosition >= Math.max(0, (uniqueTimestamps.length - 3) * 70)}
-                  >
-                    <Text style={{ fontSize: 20, color: holdScrollPosition < Math.max(0, (uniqueTimestamps.length - 3) * 70) ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>v</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Right side: Limb buttons in 2x2 grid - centered vertically */}
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <View style={{ width: '100%' }}>
-                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                    {['left_hand', 'right_hand'].map((key) => {
-                      const annotationsForSelectedHold = visibleHoldTimestamp != null
-                        ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
-                        : annotations.filter(a => a.limbType === key);
-                      const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
-                      return (
-                        <TouchableOpacity
-                          key={key}
-                          style={[
-                            styles.limbChip,
-                            {
-                              backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF'),
-                              borderWidth: selectedLimb === key ? 2 : 0,
-                              borderColor: '#4CAF50',
-                              opacity: hasComment ? 1 : 0.5,
-                            },
-                          ]}
-                          onPress={() => hasComment && setSelectedLimb(key)}
-                          disabled={!hasComment}
-                        >
-                          <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
-                            {LIMB_LABELS[key]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {['left_foot', 'right_foot'].map((key) => {
-                      const annotationsForSelectedHold = visibleHoldTimestamp != null
-                        ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
-                        : annotations.filter(a => a.limbType === key);
-                      const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
-                      return (
-                        <TouchableOpacity
-                          key={key}
-                          style={[
-                            styles.limbChip,
-                            {
-                              backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF'),
-                              borderWidth: selectedLimb === key ? 2 : 0,
-                              borderColor: '#4CAF50',
-                              opacity: hasComment ? 1 : 0.5,
-                            },
-                          ]}
-                          onPress={() => hasComment && setSelectedLimb(key)}
-                          disabled={!hasComment}
-                        >
-                          <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
-                            {LIMB_LABELS[key]}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {/* Comments section */}
-            <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 16 }}>
-              {selectedLimb ? (
-                (() => {
-                  const commentsForSelected = visibleHoldTimestamp != null
-                    ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === selectedLimb)
-                    : annotations.filter(a => a.limbType === selectedLimb);
-                  return commentsForSelected.length > 0 ? (
-                    <View style={{ padding: 16, backgroundColor: '#E8F5E9', borderRadius: 12, borderWidth: 1, borderColor: '#C8E6C9' }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#4CAF50', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                          <Text style={{ fontSize: 20 }}>🧗</Text>
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontWeight: '700', color: '#2E7D32', fontSize: 14, marginBottom: 4 }}>
-                            {LIMB_LABELS[selectedLimb]}
-                          </Text>
-                          <Text style={{ color: '#388E3C', fontSize: 14, lineHeight: 20 }}>
-                            {commentsForSelected[0].comment}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  ) : (
-                    <View style={{ padding: 16, backgroundColor: '#F5F5F5', borderRadius: 12 }}>
-                      <Text style={{ color: '#999', fontSize: 14, textAlign: 'center' }}>No comment for this limb</Text>
-                    </View>
-                  );
-                })()
-              ) : (
-                <View style={{ padding: 16, backgroundColor: '#F5F5F5', borderRadius: 12 }}>
-                  <Text style={{ color: '#999', fontSize: 14, textAlign: 'center' }}>Select a limb to view comment</Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
     </KeyboardAvoidingView>
   );
 }
