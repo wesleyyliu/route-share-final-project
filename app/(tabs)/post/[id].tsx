@@ -83,6 +83,7 @@ const DEFAULT_POSTS: PostLike[] = [
 export default function PostDetail() {
   const params = useLocalSearchParams();
   const id = params?.id ? String(params.id) : undefined;
+  const from = params?.from ? String(params.from) : undefined;
   const router = useRouter();
   const [post, setPost] = useState<PostLike | null>(null);
   const [loading, setLoading] = useState(true);
@@ -96,6 +97,14 @@ export default function PostDetail() {
   const [currentUsername, setCurrentUsername] = useState<string>('You');
   const [showMenu, setShowMenu] = useState(false);
   const [isUserPost, setIsUserPost] = useState(false);
+  const handleBack = () => {
+    if (from === 'profile') {
+      router.push('/(tabs)/profile');
+    } else {
+      router.back();
+    }
+  };
+
   const scrollViewRef = useRef<ScrollView>(null);
   const commentInputRef = useRef<TextInput>(null);
 
@@ -297,7 +306,7 @@ export default function PostDetail() {
     return (
       <View style={styles.container}>
         <Text>Post not found.</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
@@ -373,7 +382,7 @@ export default function PostDetail() {
               await AsyncStorage.removeItem(`post_comments_${id}`);
 
               Alert.alert('Success', 'Post deleted successfully');
-              router.back();
+              handleBack();
             } catch (e) {
               console.error('Error deleting post:', e);
               Alert.alert('Error', 'Failed to delete post');
@@ -391,7 +400,7 @@ export default function PostDetail() {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backIcon} activeOpacity={0.7}>
+        <TouchableOpacity onPress={handleBack} style={styles.backIcon} activeOpacity={0.7}>
           <Text style={styles.backIconText}>←</Text>
         </TouchableOpacity>
         {isUserPost && (

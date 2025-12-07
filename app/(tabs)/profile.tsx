@@ -1,3 +1,6 @@
+import ActivityCard from '@/components/ActivityCard';
+import { LimbAnnotation } from '@/components/VideoAnnotation';
+import { ClimbPost } from '@/types/post';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
@@ -25,6 +28,19 @@ interface UserProfile {
   favoriteGrade: string;
 }
 
+interface Post {
+  id: string;
+  username: string;
+  content: string;
+  timestamp: string;
+  videoUri?: number | string;
+  location: string;
+  difficulty: string;
+  color?: string;
+  avatar?: number | string;
+  annotations?: LimbAnnotation[];
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   
@@ -36,6 +52,12 @@ export default function ProfileScreen() {
     router.replace('/sign-in');
   };
 
+  const handlePostPress = (postId: string, from: string = 'profile') => {
+    router.push({
+      pathname: '/(tabs)/post/[id]',
+      params: { id: postId, from },
+    });
+  };
 
   const [profile, setProfile] = useState<UserProfile>({
     username: 'ClimbingUser',
@@ -48,6 +70,8 @@ export default function ProfileScreen() {
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
+  const [myPosts, setMyPosts] = useState<Post[]>([]);
+
   const gymOptions = ['Pottruck', 'Movement', 'Tufas'];
   const gradeOptions = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13'];
   const yearOptions = Array.from({ length: 30 }, (_, i) => String(2025 - i));
@@ -56,6 +80,7 @@ export default function ProfileScreen() {
   useFocusEffect(
     React.useCallback(() => {
       loadProfile();
+      loadMyPosts();
     }, [])
   );
 
@@ -81,6 +106,57 @@ export default function ProfileScreen() {
     } catch (error) {
       console.error('Error saving profile:', error);
       Alert.alert('Error', 'Failed to save profile');
+    }
+  };
+
+  const formatTimestamp = (timestamp: number): string => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  const loadMyPosts = async () => {
+    try {
+      const profileJson = await AsyncStorage.getItem('user_profile');
+      let storedProfile: UserProfile | null = null;
+      if (profileJson) {
+        storedProfile = JSON.parse(profileJson);
+      }
+
+      const climbPostsJson = await AsyncStorage.getItem('climb_posts');
+      if (climbPostsJson) {
+        const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
+
+        const username = storedProfile?.username || 'You';
+        const avatar = storedProfile?.profilePicture;
+
+        const userPosts: Post[] = climbPosts.map((cp) => ({
+          id: cp.id,
+          username,
+          content: cp.description,
+          timestamp: formatTimestamp(cp.createdAt),
+          videoUri: cp.videoUri,
+          location: cp.metadata.location,
+          difficulty: cp.metadata.difficulty,
+          color: cp.metadata.color,
+          annotations: cp.annotations,
+          avatar,
+        }));
+
+        setMyPosts(userPosts);
+      } else {
+        setMyPosts([]);
+      }
+    } catch (error) {
+      console.error('Error loading my posts:', error);
+      setMyPosts([]);
     }
   };
 
@@ -115,11 +191,6 @@ export default function ProfileScreen() {
   
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Profile</Text>
-      </View>
-
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {/* Profile Picture */}
         <View style={styles.profilePictureContainer}>
@@ -136,22 +207,6 @@ export default function ProfileScreen() {
 
         {/* Username */}
         <Text style={styles.username}>{profile.username}</Text>
-
-        {/* Stats Row */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Posts</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Following</Text>
-          </View>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Followers</Text>
-          </View>
-        </View>
 
         {/* Edit Profile Button */}
         <TouchableOpacity style={styles.editButton} onPress={openEditModal}>
@@ -192,6 +247,35 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.infoValue}>{profile.favoriteGrade}</Text>
           </View>
+        </View>
+
+        <View style={styles.myPostsSection}>
+          <Text style={styles.myPostsTitle}>My Posts</Text>
+
+          {myPosts.length === 0 ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(tabs)/upload')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.myPostsEmpty}>
+                You have no posts yet. Tap “Upload” to start annotating your first video.
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            myPosts.map((post) => (
+              <ActivityCard
+                key={post.id}
+                username={post.username}
+                location={post.location}
+                difficulty={post.difficulty}
+                color={post.color}
+                timestamp={post.timestamp}
+                videoUri={post.videoUri || ''}
+                avatar={post.avatar || ''}
+                onPress={() => handlePostPress(post.id, 'profile')}
+              />
+            ))
+          )}
         </View>
 
         {/* Log out */}
@@ -636,5 +720,19 @@ const styles = StyleSheet.create({
   },
   gradeButton: {
     marginRight: 8,
+  },
+  myPostsSection: {
+    marginTop: 16,
+  },
+  myPostsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2C3D50',
+    marginBottom: 8,
+  },
+    myPostsEmpty: {
+    fontSize: 14,
+    color: '#6B7885',
+    marginTop: 4,
   },
 });
