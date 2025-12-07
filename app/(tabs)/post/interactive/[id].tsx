@@ -301,19 +301,28 @@ export default function InteractiveView() {
                   ? annotations.filter((a) => a.timestamp === visibleHoldTimestamp)
                   : annotations
                 )
-              ).map((a) => (
-                <View
-                  key={a.id}
-                  style={[
-                    styles.interactiveDot,
-                    {
-                      left: `${a.x}%`,
-                      top: `${a.y}%`,
-                      backgroundColor: getHoldColor(a.timestamp),
-                    },
-                  ]}
-                />
-              ))}
+              ).map((a) => {
+                const isSelected = selectedLimb === a.limbType;
+                return (
+                  <View
+                    key={a.id}
+                    style={[
+                      styles.interactiveDot,
+                      {
+                        left: `${a.x}%`,
+                        top: `${a.y}%`,
+                        backgroundColor: getHoldColor(a.timestamp),
+                        borderWidth: isSelected ? 4 : 2,
+                        width: isSelected ? 22 : 18,
+                        height: isSelected ? 22 : 18,
+                        borderRadius: isSelected ? 11 : 9,
+                        marginLeft: isSelected ? -11 : -9,
+                        marginTop: isSelected ? -11 : -9,
+                      },
+                    ]}
+                  />
+                );
+              })}
             </View>
           </View>
         </View>
@@ -351,10 +360,17 @@ export default function InteractiveView() {
                 <TouchableOpacity
                   key={`hold-picker-${ts}-${idx}`}
                   onPress={() => {
-                    setVisibleHoldTimestamp(ts);
-                    const annotationsForHold = annotations.filter(a => a.timestamp === ts);
-                    const limbWithComment = annotationsForHold.find(a => a.comment && a.comment.trim() !== '');
-                    setSelectedLimb(limbWithComment ? limbWithComment.limbType : null);
+                    if (visibleHoldTimestamp === ts) {
+                      // Deselect - show all annotations
+                      setVisibleHoldTimestamp(null);
+                      setSelectedLimb(null);
+                    } else {
+                      // Select this hold
+                      setVisibleHoldTimestamp(ts);
+                      const annotationsForHold = annotations.filter(a => a.timestamp === ts);
+                      const limbWithComment = annotationsForHold.find(a => a.comment && a.comment.trim() !== '');
+                      setSelectedLimb(limbWithComment ? limbWithComment.limbType : null);
+                    }
                   }}
                   style={{
                     width: 90,
@@ -403,22 +419,21 @@ export default function InteractiveView() {
                     ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
                     : annotations.filter(a => a.limbType === key);
                   const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
+                  const isViewingAllHolds = visibleHoldTimestamp === null;
                   return (
                     <TouchableOpacity
                       key={key}
                       style={[
                         styles.limbChip,
                         {
-                          backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF'),
-                          borderWidth: selectedLimb === key ? 2 : 0,
-                          borderColor: '#4CAF50',
-                          opacity: hasComment ? 1 : 0.5,
+                          backgroundColor: isViewingAllHolds ? '#9CA3AF' : (selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF')),
+                          opacity: isViewingAllHolds ? 0.5 : (hasComment ? 1 : 0.5),
                         },
                       ]}
-                      onPress={() => hasComment && setSelectedLimb(key)}
-                      disabled={!hasComment}
+                      onPress={() => !isViewingAllHolds && hasComment && setSelectedLimb(key)}
+                      disabled={isViewingAllHolds || !hasComment}
                     >
-                      <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
+                      <Text style={{ color: isViewingAllHolds ? '#BDBDBD' : (selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD')), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
                         {LIMB_LABELS[key]}
                       </Text>
                     </TouchableOpacity>
@@ -431,22 +446,21 @@ export default function InteractiveView() {
                     ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === key)
                     : annotations.filter(a => a.limbType === key);
                   const hasComment = annotationsForSelectedHold.some(a => a.comment && a.comment.trim() !== '');
+                  const isViewingAllHolds = visibleHoldTimestamp === null;
                   return (
                     <TouchableOpacity
                       key={key}
                       style={[
                         styles.limbChip,
                         {
-                          backgroundColor: selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF'),
-                          borderWidth: selectedLimb === key ? 2 : 0,
-                          borderColor: '#4CAF50',
-                          opacity: hasComment ? 1 : 0.5,
+                          backgroundColor: isViewingAllHolds ? '#9CA3AF' : (selectedLimb === key ? (hasComment ? getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]) : '#E5E7EB') : (hasComment ? '#2C3D50' : '#9CA3AF')),
+                          opacity: isViewingAllHolds ? 0.5 : (hasComment ? 1 : 0.5),
                         },
                       ]}
-                      onPress={() => hasComment && setSelectedLimb(key)}
-                      disabled={!hasComment}
+                      onPress={() => !isViewingAllHolds && hasComment && setSelectedLimb(key)}
+                      disabled={isViewingAllHolds || !hasComment}
                     >
-                      <Text style={{ color: selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD'), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
+                      <Text style={{ color: isViewingAllHolds ? '#BDBDBD' : (selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD')), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
                         {LIMB_LABELS[key]}
                       </Text>
                     </TouchableOpacity>
@@ -464,19 +478,30 @@ export default function InteractiveView() {
               const commentsForSelected = visibleHoldTimestamp != null
                 ? annotations.filter(a => a.timestamp === visibleHoldTimestamp && a.limbType === selectedLimb)
                 : annotations.filter(a => a.limbType === selectedLimb);
+              const holdColor = getHoldColor(visibleHoldTimestamp || uniqueTimestamps[0]);
               return commentsForSelected.length > 0 ? (
-                <View style={{ padding: 16, backgroundColor: '#E8F5E9', borderRadius: 12, borderWidth: 1, borderColor: '#C8E6C9' }}>
+                <View style={{ padding: 16, backgroundColor: `${holdColor}20`, borderRadius: 12, borderWidth: 1, borderColor: `${holdColor}80` }}>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#C8E6C9', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-                      <ClimbingIcon size={30} color="#4CAF50" />
-                    </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '700', color: '#2E7D32', fontSize: 14, marginBottom: 4 }}>
+                      <Text style={{ fontWeight: '700', color: holdColor, fontSize: 14, marginBottom: 4 }}>
                         {LIMB_LABELS[selectedLimb]}
                       </Text>
-                      <Text style={{ color: '#388E3C', fontSize: 14, lineHeight: 20 }}>
+                      <Text style={{ color: '#2C3D50', fontSize: 14, lineHeight: 20 }}>
                         {commentsForSelected[0].comment}
                       </Text>
+                    </View>
+                    <View style={{ width: 50, height: 50, justifyContent: 'center', alignItems: 'center', marginLeft: 12, position: 'relative' }}>
+                      <ClimbingIcon size={50} color="#2C3D50" />
+                      <View
+                        style={[
+                          styles.limbHighlight,
+                          selectedLimb === 'left_hand' && styles.limbHighlightLeftHand,
+                          selectedLimb === 'right_hand' && styles.limbHighlightRightHand,
+                          selectedLimb === 'left_foot' && styles.limbHighlightLeftFoot,
+                          selectedLimb === 'right_foot' && styles.limbHighlightRightFoot,
+                          { backgroundColor: holdColor }
+                        ]}
+                      />
                     </View>
                   </View>
                 </View>
@@ -531,5 +556,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 56,
+  },
+  limbHighlight: {
+    position: 'absolute',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    opacity: 0.8,
+  },
+  limbHighlightLeftHand: {
+    top: 6,
+    left: 2,
+  },
+  limbHighlightRightHand: {
+    top: -2,
+    right: 10,
+  },
+  limbHighlightLeftFoot: {
+    bottom: -2,
+    left: 7,
+  },
+  limbHighlightRightFoot: {
+    bottom: 6,
+    right: 7,
   },
 });
