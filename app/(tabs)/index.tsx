@@ -177,7 +177,7 @@ export default function HomeScreen() {
 
   const loadPosts = async () => {
     try {
-      // Load user profile
+      // Load current user profile
       const profileJson = await AsyncStorage.getItem('user_profile');
       let profile = null;
       if (profileJson) {
@@ -185,22 +185,58 @@ export default function HomeScreen() {
         setUserProfile(profile);
       }
 
+      // Get the current logged in user
+      const currentUser = await AsyncStorage.getItem('current_user');
+
       const climbPostsJson = await AsyncStorage.getItem('climb_posts');
       if (climbPostsJson) {
         const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
 
-        const userPosts: Post[] = climbPosts.map((cp) => ({
-          id: cp.id,
-          username: profile ? profile.username : 'You',
-          content: cp.description,
-          timestamp: formatTimestamp(cp.createdAt),
-          videoUri: cp.videoUri,
-          location: cp.metadata.location,
-          difficulty: cp.metadata.difficulty,
-          color: cp.metadata.color,
-          annotations: cp.annotations,
-          avatar: profile?.profilePicture,
-        }));
+        // Build a cache of user profiles for displaying avatars
+        const profileCache: Record<string, { username: string; profilePicture?: string }> = {};
+        
+        if (profile && profile.username) {
+          profileCache[profile.username] = profile;
+        }
+        if (currentUser && profile) {
+          profileCache[currentUser] = profile;
+        }
+        
+        // Load profile for each unique post owner
+        const uniqueOwners = [...new Set(climbPosts.map((cp) => cp.ownerUsername).filter(Boolean))];
+        
+        for (const owner of uniqueOwners) {
+          // Skip if we already have this profile in cache
+          if (profileCache[owner]) continue;
+          
+          try {
+            const ownerProfileJson = await AsyncStorage.getItem(`user_profile_${owner}`);
+            if (ownerProfileJson) {
+              profileCache[owner] = JSON.parse(ownerProfileJson);
+            }
+          } catch (e) {
+            console.error(`Error loading profile for ${owner}:`, e);
+          }
+        }
+
+        const userPosts: Post[] = climbPosts.map((cp) => {
+          // Use the post's ownerUsername - don't fall back to current user to avoid mis-attribution
+          const postOwner = cp.ownerUsername || 'Unknown';
+          const ownerProfile = profileCache[postOwner];
+          
+          return {
+            id: cp.id,
+            username: postOwner,
+            content: cp.description,
+            timestamp: formatTimestamp(cp.createdAt),
+            videoUri: cp.videoUri,
+            location: cp.metadata.location,
+            difficulty: cp.metadata.difficulty,
+            color: cp.metadata.color,
+            annotations: cp.annotations,
+            avatar: ownerProfile?.profilePicture,
+          };
+        });
 
         // Merge user posts with default posts
         setPosts([...userPosts, ...defaultPosts]);
@@ -636,12 +672,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#A0B0BD',
     marginBottom: 4,
+    fontFamily: 'Inter_400Regular',
   },
   locationText: {
     fontSize: 18,
     color: '#FFFFFF',
     fontWeight: '600',
     marginBottom: 16,
+    fontFamily: 'Poppins_700Bold',
   },
   input: {
     backgroundColor: '#203247ff',
@@ -651,6 +689,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     marginBottom: 12,
+    fontFamily: 'Inter_400Regular',
   },
   dropdownContainer: {
     marginBottom: 12,
@@ -667,10 +706,12 @@ const styles = StyleSheet.create({
   dropdownText: {
     fontSize: 15,
     color: '#2C3D50',
+    fontFamily: 'Inter_400Regular',
   },
   caret: {
     fontSize: 12,
     color: '#9AA6B0',
+    fontFamily: 'Inter_400Regular',
   },
   dropdownOptions: {
     backgroundColor: '#FFFFFF',
@@ -687,6 +728,7 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 15,
     color: '#2C3D50',
+    fontFamily: 'Inter_400Regular',
   },
   filterRow: {
     flexDirection: 'row',
@@ -699,6 +741,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#A0B0BD',
     marginBottom: 6,
+    fontFamily: 'Inter_400Regular',
   },
   titleContainer: {
     backgroundColor: '#FFFFFF',
@@ -710,6 +753,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   feed: {
     flex: 1,
@@ -734,21 +778,25 @@ const styles = StyleSheet.create({
   metadataText: {
     fontSize: 14,
     color: '#6B7885',
+    fontFamily: 'Inter_400Regular',
   },
   username: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   timestamp: {
     fontSize: 14,
     color: '#999',
+    fontFamily: 'Inter_400Regular',
   },
   postContent: {
     fontSize: 15,
     color: '#2C3D50',
     lineHeight: 20,
     marginTop: 6,
+    fontFamily: 'Inter_400Regular',
   },
   postHeaderRow: {
     flexDirection: 'row',
@@ -830,6 +878,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   profileModalScroll: {
     flex: 1,
@@ -864,6 +913,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: 'Poppins_700Bold',
   },
   modalUsername: {
     fontSize: 24,
@@ -871,6 +921,7 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Poppins_700Bold',
   },
   profileInfoSection: {
     gap: 12,
@@ -890,10 +941,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   profileInfoValue: {
     fontSize: 16,
     color: '#2C3D50',
     marginLeft: 28,
+    fontFamily: 'Inter_400Regular',
   },
 });

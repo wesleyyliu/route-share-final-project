@@ -101,16 +101,25 @@ export default function VideoAnnotatorScreen() {
   const handlePost = async () => {
     if (!videoUri) return;
 
-    const post: ClimbPost = {
-      id: `post_${Date.now()}`,
-      videoUri,
-      annotations,
-      metadata,
-      description,
-      createdAt: Date.now(),
-    };
-
     try {
+      // Get current logged in user
+      const currentUser = await AsyncStorage.getItem('current_user');
+      
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to post');
+        return;
+      }
+
+      const post: ClimbPost = {
+        id: `post_${Date.now()}`,
+        videoUri,
+        annotations,
+        metadata,
+        description,
+        createdAt: Date.now(),
+        ownerUsername: currentUser,
+      };
+
       // Get existing posts
       const existingPostsJson = await AsyncStorage.getItem('climb_posts');
       const existingPosts: ClimbPost[] = existingPostsJson ? JSON.parse(existingPostsJson) : [];

@@ -2,12 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function SignUpScreen() {
@@ -25,11 +25,24 @@ export default function SignUpScreen() {
     try {
       const trimmedUsername = username.trim();
 
-      await AsyncStorage.setItem(
-        'user',
-        JSON.stringify({ username: trimmedUsername, password })
-      );
+      // Load existing users map
+      const usersJson = await AsyncStorage.getItem('users_map');
+      const usersMap: Record<string, { username: string; password: string }> = usersJson ? JSON.parse(usersJson) : {};
 
+      // Check if username already exists
+      if (usersMap[trimmedUsername]) {
+        Alert.alert('Username taken', 'Please choose a different username');
+        return;
+      }
+
+      // Add new user to the map
+      usersMap[trimmedUsername] = { username: trimmedUsername, password };
+      await AsyncStorage.setItem('users_map', JSON.stringify(usersMap));
+
+      // Set current logged in user
+      await AsyncStorage.setItem('current_user', trimmedUsername);
+
+      // Create profile
       const initialProfile = {
         username: trimmedUsername,
         bio: 'Just here to send it! 🧗',
@@ -39,6 +52,8 @@ export default function SignUpScreen() {
         profilePicture: undefined,
         height: undefined,
       };
+      await AsyncStorage.setItem(`user_profile_${trimmedUsername}`, JSON.stringify(initialProfile));
+      // Also set the active user_profile for backwards compatibility
       await AsyncStorage.setItem('user_profile', JSON.stringify(initialProfile));
 
       await AsyncStorage.setItem('loggedIn', 'true');
@@ -96,6 +111,7 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     marginBottom: 24,
     textAlign: 'center',
+    fontFamily: 'Poppins_700Bold',
   },
   input: {
     borderWidth: 1,
@@ -105,6 +121,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 12,
+    fontFamily: 'Inter_400Regular',
   },
   button: {
     backgroundColor: '#2C3D50',
@@ -118,10 +135,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
   link: {
     textAlign: 'center',
     color: '#2C3D50',
     marginTop: 4,
+    fontFamily: 'Inter_400Regular',
   },
 });

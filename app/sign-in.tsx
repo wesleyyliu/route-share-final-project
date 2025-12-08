@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function SignInScreen() {
   const router = useRouter();
@@ -17,19 +17,72 @@ export default function SignInScreen() {
     }
 
     try {
-      const stored = await AsyncStorage.getItem('user');
+      const enteredUsername = username.trim();
 
-      if (!stored) {
-        alert('No account found. Please sign up first.');
+      // Load users map
+      const usersJson = await AsyncStorage.getItem('users_map');
+      let usersMap: Record<string, { username: string; password: string }> = usersJson ? JSON.parse(usersJson) : {};
+      let savedUser = usersMap[enteredUsername];
+
+      if (!savedUser) {
+        const legacyUserJson = await AsyncStorage.getItem('user');
+        if (legacyUserJson) {
+          const legacyUser = JSON.parse(legacyUserJson);
+          if (legacyUser.username === enteredUsername) {
+            // Migrate legacy user to users_map
+            savedUser = legacyUser;
+            usersMap[enteredUsername] = legacyUser;
+            await AsyncStorage.setItem('users_map', JSON.stringify(usersMap));
+          }
+        }
+      }
+
+      if (!savedUser) {
+        alert('No account found with that username. Please sign up first.');
         return;
       }
 
-      const saved = JSON.parse(stored) as { username: string; password: string };
-      const enteredUsername = username.trim();
-
-      if (enteredUsername !== saved.username || password !== saved.password) {
-        alert('Incorrect username or password');
+      if (password !== savedUser.password) {
+        alert('Incorrect password');
         return;
+      }
+
+      // Set current logged in user
+      await AsyncStorage.setItem('current_user', enteredUsername);
+
+      // Load this user's profile and set it as active
+      let userProfileJson = await AsyncStorage.getItem(`user_profile_${enteredUsername}`);
+      
+      // If per-user profile doesn't exist, try to use/migrate the legacy profile
+      if (!userProfileJson) {
+        const legacyProfileJson = await AsyncStorage.getItem('user_profile');
+        if (legacyProfileJson) {
+          const legacyProfile = JSON.parse(legacyProfileJson);
+          // Only use if the username matches
+          if (legacyProfile.username === enteredUsername) {
+            userProfileJson = legacyProfileJson;
+            // Save to per-user key for future logins
+            await AsyncStorage.setItem(`user_profile_${enteredUsername}`, legacyProfileJson);
+          }
+        }
+      }
+      
+      if (userProfileJson) {
+        await AsyncStorage.setItem('user_profile', userProfileJson);
+      } else {
+        // Create a new profile if none exists
+        const newProfile = {
+          username: enteredUsername,
+          bio: 'Just here to send it! 🧗',
+          defaultGym: undefined,
+          joinedOn: new Date().toISOString(),
+          currentGrade: undefined,
+          profilePicture: undefined,
+          height: undefined,
+        };
+        const newProfileJson = JSON.stringify(newProfile);
+        await AsyncStorage.setItem('user_profile', newProfileJson);
+        await AsyncStorage.setItem(`user_profile_${enteredUsername}`, newProfileJson);
       }
 
       await AsyncStorage.setItem('loggedIn', 'true');
@@ -87,6 +140,7 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     marginBottom: 24,
     textAlign: 'center',
+    fontFamily: 'Poppins_700Bold',
   },
   input: {
     borderWidth: 1,
@@ -96,6 +150,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     marginBottom: 12,
+    fontFamily: 'Inter_400Regular',
   },
   button: {
     backgroundColor: '#2C3D50',
@@ -109,10 +164,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
   link: {
     textAlign: 'center',
     color: '#2C3D50',
     marginTop: 4,
+    fontFamily: 'Inter_400Regular',
   },
 });

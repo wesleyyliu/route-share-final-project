@@ -75,11 +75,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '600',
     marginBottom: 10,
+    fontFamily: 'Poppins_700Bold',
   },
   text: {
     fontSize: 16,
     marginBottom: 12,
     color: '#555',
+    fontFamily: 'Inter_400Regular',
   },
   imageRow: {
     flexDirection: 'row',
@@ -105,5 +107,6 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
 });

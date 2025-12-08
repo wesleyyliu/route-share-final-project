@@ -124,12 +124,20 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     try {
+      // Get current logged in user
+      const currentUser = await AsyncStorage.getItem('current_user');
+      
       // Preserve joinedOn if it exists
       const profileToSave = { ...editedProfile };
       if (profile.joinedOn) {
         profileToSave.joinedOn = profile.joinedOn;
       }
+      
       await AsyncStorage.setItem('user_profile', JSON.stringify(profileToSave));
+      if (currentUser) {
+        await AsyncStorage.setItem(`user_profile_${currentUser}`, JSON.stringify(profileToSave));
+      }
+      
       setProfile(profileToSave);
       setIsEditModalVisible(false);
       // Reload posts to update profile picture in posts
@@ -156,6 +164,9 @@ export default function ProfileScreen() {
 
   const loadMyPosts = async () => {
     try {
+      // Get current logged in user
+      const currentUser = await AsyncStorage.getItem('current_user');
+      
       const profileJson = await AsyncStorage.getItem('user_profile');
       let storedProfile: UserProfile | null = null;
       if (profileJson) {
@@ -166,10 +177,15 @@ export default function ProfileScreen() {
       if (climbPostsJson) {
         const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
 
-        const username = storedProfile?.username || 'You';
+        const username = storedProfile?.username || currentUser || 'You';
         const avatar = storedProfile?.profilePicture;
 
-        const userPosts: Post[] = climbPosts.map((cp) => ({
+        // Filter to only show posts owned by the current user
+        const myClimbPosts = currentUser 
+          ? climbPosts.filter((cp) => cp.ownerUsername && cp.ownerUsername === currentUser)
+          : [];
+
+        const userPosts: Post[] = myClimbPosts.map((cp) => ({
           id: cp.id,
           username,
           content: cp.description,
@@ -490,6 +506,7 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: 'Poppins_700Bold',
   },
   content: {
     flex: 1,
@@ -525,6 +542,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: 'Poppins_700Bold',
   },
   username: {
     fontSize: 28,
@@ -532,6 +550,7 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Poppins_700Bold',
   },
   statsRow: {
     flexDirection: 'row',
@@ -548,11 +567,13 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   statLabel: {
     fontSize: 14,
     color: '#999',
     marginTop: 4,
+    fontFamily: 'Inter_400Regular',
   },
   editButton: {
     flexDirection: 'row',
@@ -568,6 +589,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
   },
     logoutButton: {
     marginTop: 24,
@@ -582,6 +604,7 @@ const styles = StyleSheet.create({
     color: '#FF6B35',
     fontSize: 16,
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
   infoSection: {
     gap: 12,
@@ -601,11 +624,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   infoValue: {
     fontSize: 16,
     color: '#2C3D50',
     marginLeft: 28,
+    fontFamily: 'Inter_400Regular',
   },
   modalOverlay: {
     flex: 1,
@@ -631,11 +656,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     width: 60,
+    fontFamily: 'Inter_400Regular',
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   modalSaveText: {
     fontSize: 16,
@@ -643,6 +670,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     width: 60,
     textAlign: 'right',
+    fontFamily: 'Poppins_700Bold',
   },
   modalScroll: {
     paddingHorizontal: 20,
@@ -659,6 +687,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#2C3D50',
     marginBottom: 8,
+    fontFamily: 'Poppins_700Bold',
   },
   editInput: {
     borderWidth: 1,
@@ -669,6 +698,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#2C3D50',
     backgroundColor: '#F9F9F9',
+    fontFamily: 'Inter_400Regular',
   },
   bioInput: {
     minHeight: 80,
@@ -685,6 +715,7 @@ const styles = StyleSheet.create({
   readOnlyText: {
     fontSize: 16,
     color: '#999',
+    fontFamily: 'Inter_400Regular',
   },
   pictureEditContainer: {
     alignSelf: 'center',
@@ -707,6 +738,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: 'Poppins_700Bold',
   },
   cameraIconContainer: {
     position: 'absolute',
@@ -742,10 +774,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2C3D50',
     fontWeight: '500',
+    fontFamily: 'Inter_400Regular',
   },
   optionTextActive: {
     color: '#FFFFFF',
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
   horizontalScroll: {
     marginHorizontal: -20,
@@ -765,10 +799,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#2C3D50',
     marginBottom: 8,
+    fontFamily: 'Poppins_700Bold',
   },
     myPostsEmpty: {
     fontSize: 14,
     color: '#6B7885',
     marginTop: 4,
+    fontFamily: 'Inter_400Regular',
   },
 });

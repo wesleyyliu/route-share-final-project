@@ -13,5 +13,6 @@ export interface ClimbPost {
   metadata: ClimbMetadata;
   description: string;
   createdAt: number;
+  ownerUsername: string;
 }
 

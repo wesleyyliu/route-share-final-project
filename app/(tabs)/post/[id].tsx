@@ -295,20 +295,39 @@ export default function PostDetail() {
           const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
           const found = climbPosts.find((p) => String(p.id) === String(id));
           if (found) {
+            const postOwner = found.ownerUsername || username;
+            
+            let postOwnerAvatar: string | undefined = undefined;
+            if (postOwner === username) {
+              postOwnerAvatar = currentUserProfilePicture;
+            } else {
+              try {
+                const ownerProfileJson = await AsyncStorage.getItem(`user_profile_${postOwner}`);
+                if (ownerProfileJson) {
+                  const ownerProfile = JSON.parse(ownerProfileJson);
+                  postOwnerAvatar = ownerProfile.profilePicture;
+                }
+              } catch (e) {
+                console.error('Error loading post owner profile:', e);
+              }
+            }
+            
             if (mounted) {
               setPost({
                 id: found.id,
-                username: username,
+                username: postOwner,
                 createdAt: found.createdAt,
                 videoUri: found.videoUri,
                 location: found.metadata?.location,
                 difficulty: found.metadata?.difficulty,
                 color: found.metadata?.color,
                 description: found.description,
-                avatar: currentUserProfilePicture,
+                avatar: postOwnerAvatar,
                 annotations: found.annotations || [],
               });
-              setIsUserPost(true); // This is a user post
+              // Check if this is the current user's post
+              const currentUser = await AsyncStorage.getItem('current_user');
+              setIsUserPost(found.ownerUsername === currentUser);
             }
           }
         }
@@ -1351,6 +1370,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   profileModalScroll: {
     flex: 1,
@@ -1385,6 +1405,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    fontFamily: 'Poppins_700Bold',
   },
   modalUsername: {
     fontSize: 24,
@@ -1392,6 +1413,7 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     textAlign: 'center',
     marginBottom: 20,
+    fontFamily: 'Poppins_700Bold',
   },
   profileInfoSection: {
     gap: 12,
@@ -1411,10 +1433,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   profileInfoValue: {
     fontSize: 16,
     color: '#2C3D50',
     marginLeft: 28,
+    fontFamily: 'Inter_400Regular',
   },
 });

@@ -107,11 +107,13 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 28,
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   modalTitle: {
     fontSize: 20,
     color: '#2C3D50',
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
   modalDoneButton: {
     backgroundColor: '#FF6B35',
@@ -124,6 +126,7 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
   },
   modalScroll: {
     maxHeight: 500,

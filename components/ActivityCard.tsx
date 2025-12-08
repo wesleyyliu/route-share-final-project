@@ -158,11 +158,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
   },
   username: {
     fontSize: 16,
     fontWeight: '600',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   metadataRow: {
     flexDirection: 'row',
@@ -176,10 +178,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7885',
     flex: 1,
+    fontFamily: 'Inter_400Regular',
   },
   timestamp: {
     fontSize: 11,
     color: '#999',
     marginTop: 4,
+    fontFamily: 'Inter_400Regular',
   },
 });

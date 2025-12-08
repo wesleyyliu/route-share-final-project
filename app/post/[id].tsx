@@ -77,36 +77,35 @@ export default function PostDetail() {
           return;
         }
 
-        // Load user profile to get profile picture
-        let userProfilePicture: string | undefined = undefined;
-        try {
-          const profileJson = await AsyncStorage.getItem('user_profile');
-          if (profileJson) {
-            const profile = JSON.parse(profileJson);
-            userProfilePicture = profile.profilePicture;
-            if (mounted) {
-              setProfilePicture(profile.profilePicture);
-            }
-          }
-        } catch (e) {
-          console.error('Error loading profile:', e);
-        }
-
         const climbPostsJson = await AsyncStorage.getItem('climb_posts');
         if (climbPostsJson) {
           const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
           const found = climbPosts.find((p) => String(p.id) === String(id));
           if (found) {
+            const postOwner = found.ownerUsername || 'Unknown';
+            
+            let postOwnerAvatar: string | undefined = undefined;
+            try {
+              const ownerProfileJson = await AsyncStorage.getItem(`user_profile_${postOwner}`);
+              if (ownerProfileJson) {
+                const ownerProfile = JSON.parse(ownerProfileJson);
+                postOwnerAvatar = ownerProfile.profilePicture;
+              }
+            } catch (e) {
+              console.error('Error loading post owner profile:', e);
+            }
+            
             if (mounted) {
+              setProfilePicture(postOwnerAvatar);
               setPost({
                 id: found.id,
-                username: 'You',
+                username: postOwner,
                 createdAt: found.createdAt,
                 videoUri: found.videoUri,
                 location: found.metadata?.location,
                 difficulty: found.metadata?.difficulty,
                 color: found.metadata?.color,
-                avatar: userProfilePicture,
+                avatar: postOwnerAvatar,
                 annotations: found.annotations || [],
               });
             }
@@ -498,8 +497,8 @@ const styles = StyleSheet.create({
   header: { height: 60, backgroundColor: '#2C3D50', paddingTop: 18, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
   backIcon: { padding: 8 },
   backButton: { marginTop: 12 },
-  backButtonText: { color: '#2C3D50' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
+  backButtonText: { color: '#2C3D50', fontFamily: 'Poppins_400Regular' },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8, fontFamily: 'Poppins_700Bold' },
   contentRow: { flex: 1 },
   mediaCard: { backgroundColor: '#2F4050', margin: 20, borderRadius: 16, padding: 14, flexDirection: 'row', justifyContent: 'space-between' },
   thumbWrapper: { width: '48%', alignItems: 'center' },
@@ -507,26 +506,26 @@ const styles = StyleSheet.create({
   playIcon: { color: '#fff', fontSize: 36, opacity: 0.95 },
   annotationDotsRow: { position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  thumbCaption: { color: '#DDEAF2', marginTop: 8, fontSize: 12 },
+  thumbCaption: { color: '#DDEAF2', marginTop: 8, fontSize: 12, fontFamily: 'Poppins_400Regular' },
   leftColumn: { paddingHorizontal: 12 },
   rightColumn: { padding: 12 },
   video: { width: '100%', height: 300, backgroundColor: '#000', borderRadius: 12, overflow: 'hidden' },
-  metaTitle: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
-  noAnnotations: { color: '#666' },
+  metaTitle: { fontSize: 20, fontWeight: '700', marginBottom: 12, fontFamily: 'Poppins_700Bold' },
+  noAnnotations: { color: '#666', fontFamily: 'Inter_400Regular' },
   annotationRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   limbDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10, marginTop: 6 },
-  annotationLabel: { fontSize: 16, fontWeight: '600' },
-  annotationMeta: { fontSize: 14, color: '#666' },
+  annotationLabel: { fontSize: 16, fontWeight: '600', fontFamily: 'Poppins_700Bold' },
+  annotationMeta: { fontSize: 14, color: '#666', fontFamily: 'Inter_400Regular' },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 8 },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#E6E6E6', overflow: 'hidden' },
-  username: { fontSize: 18, fontWeight: '700', color: '#111' },
-  smallTimestamp: { color: '#888', marginTop: 4 },
+  username: { fontSize: 18, fontWeight: '700', color: '#111', fontFamily: 'Poppins_700Bold' },
+  smallTimestamp: { color: '#888', marginTop: 4, fontFamily: 'Inter_400Regular' },
   metaCard: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   metaIcon: { marginRight: 8 },
-  metaText: { color: '#344154' },
+  metaText: { color: '#344154', fontFamily: 'Inter_400Regular' },
   commentsSection: { marginTop: 18, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8, fontFamily: 'Poppins_700Bold' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 12 },
   modalClose: { alignSelf: 'flex-end', padding: 8 },

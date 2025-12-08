@@ -4,9 +4,9 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Asset } from 'expo-asset';
 import { ResizeMode, Video } from 'expo-av';
-import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface PostLike {
@@ -127,38 +127,36 @@ export default function FullVideoView() {
         }
 
         // If not found in defaults, check AsyncStorage for user posts
-        let userProfilePicture: string | undefined = undefined;
-        let userProfileUsername: string = 'You';
-        try {
-          const profileJson = await AsyncStorage.getItem('user_profile');
-          if (profileJson) {
-            const profile = JSON.parse(profileJson);
-            userProfilePicture = profile.profilePicture;
-            userProfileUsername = profile.username || 'You';
-            if (mounted) {
-              setProfilePicture(profile.profilePicture);
-            }
-          }
-        } catch (e) {
-          console.error('Error loading profile:', e);
-        }
-
         const climbPostsJson = await AsyncStorage.getItem('climb_posts');
         if (climbPostsJson) {
           const climbPosts: ClimbPost[] = JSON.parse(climbPostsJson);
           const found = climbPosts.find((p) => String(p.id) === String(id));
           if (found) {
+            const postOwner = found.ownerUsername || 'Unknown';
+            
+            let postOwnerAvatar: string | undefined = undefined;
+            try {
+              const ownerProfileJson = await AsyncStorage.getItem(`user_profile_${postOwner}`);
+              if (ownerProfileJson) {
+                const ownerProfile = JSON.parse(ownerProfileJson);
+                postOwnerAvatar = ownerProfile.profilePicture;
+              }
+            } catch (e) {
+              console.error('Error loading post owner profile:', e);
+            }
+            
             if (mounted) {
+              setProfilePicture(postOwnerAvatar);
               setPost({
                 id: found.id,
-                username: userProfileUsername,
+                username: postOwner,
                 createdAt: found.createdAt,
                 videoUri: found.videoUri,
                 location: found.metadata?.location,
                 difficulty: found.metadata?.difficulty,
                 color: found.metadata?.color,
                 description: found.description,
-                avatar: userProfilePicture,
+                avatar: postOwnerAvatar,
                 annotations: found.annotations || [],
               });
             }
@@ -667,6 +665,7 @@ const styles = StyleSheet.create({
   thumbnailPlaceholderText: {
     color: '#999',
     fontSize: 14,
+    fontFamily: 'Inter_400Regular',
   },
   scrubberOverlay: {
     position: 'absolute',
@@ -719,10 +718,12 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 12,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
   },
   durationText: {
     color: '#CCC',
     fontSize: 12,
+    fontFamily: 'Inter_400Regular',
   },
   toggleContainer: {
     paddingHorizontal: 16,

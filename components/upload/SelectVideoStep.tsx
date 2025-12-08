@@ -27,6 +27,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
+    fontFamily: 'Poppins_700Bold',
   },
   uploadCard: {
     backgroundColor: '#F6F6F6',
@@ -44,5 +45,6 @@ const styles = StyleSheet.create({
     color: '#2C3D50',
     marginBottom: 2,
     textAlign: 'center',
+    fontFamily: 'Inter_400Regular',
   },
 });
