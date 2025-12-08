@@ -10,7 +10,9 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -24,8 +26,9 @@ interface UserProfile {
   bio: string;
   defaultGym: string;
   profilePicture?: string;
-  climbingSince: string;
-  favoriteGrade: string;
+  joinedOn?: string;
+  currentGrade: string;
+  height?: string;
 }
 
 interface Post {
@@ -63,8 +66,8 @@ export default function ProfileScreen() {
     username: 'ClimbingUser',
     bio: 'Just here to send it! 🧗',
     defaultGym: 'Pottruck',
-    climbingSince: '2023',
-    favoriteGrade: 'V5',
+    joinedOn: new Date().toISOString(),
+    currentGrade: 'V5',
   });
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
@@ -72,9 +75,18 @@ export default function ProfileScreen() {
 
   const [myPosts, setMyPosts] = useState<Post[]>([]);
 
-  const gymOptions = ['Pottruck', 'Movement', 'Tufas'];
+  const gymOptions = ['Pottruck', 'Movement', 'Tufas', 'Main Line'];
   const gradeOptions = ['V0', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'V7', 'V8', 'V9', 'V10', 'V11', 'V12', 'V13'];
-  const yearOptions = Array.from({ length: 30 }, (_, i) => String(2025 - i));
+
+  const formatJoinedDate = (dateString?: string): string => {
+    if (!dateString) return 'Unknown';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+      return 'Unknown';
+    }
+  };
 
   // Load profile when screen focuses
   useFocusEffect(
@@ -89,6 +101,19 @@ export default function ProfileScreen() {
       const profileJson = await AsyncStorage.getItem('user_profile');
       if (profileJson) {
         const savedProfile = JSON.parse(profileJson);
+        // Migrate old profiles: if climbingSince exists but joinedOn doesn't, use current date
+        if (!savedProfile.joinedOn) {
+          savedProfile.joinedOn = new Date().toISOString();
+        }
+        // Migrate favoriteGrade to currentGrade
+        if (savedProfile.favoriteGrade && !savedProfile.currentGrade) {
+          savedProfile.currentGrade = savedProfile.favoriteGrade;
+          delete savedProfile.favoriteGrade;
+        }
+        // Ensure currentGrade exists
+        if (!savedProfile.currentGrade) {
+          savedProfile.currentGrade = 'V0';
+        }
         setProfile(savedProfile);
         setEditedProfile(savedProfile);
       }
@@ -99,9 +124,16 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     try {
-      await AsyncStorage.setItem('user_profile', JSON.stringify(editedProfile));
-      setProfile(editedProfile);
+      // Preserve joinedOn if it exists
+      const profileToSave = { ...editedProfile };
+      if (profile.joinedOn) {
+        profileToSave.joinedOn = profile.joinedOn;
+      }
+      await AsyncStorage.setItem('user_profile', JSON.stringify(profileToSave));
+      setProfile(profileToSave);
       setIsEditModalVisible(false);
+      // Reload posts to update profile picture in posts
+      loadMyPosts();
       Alert.alert('Success', 'Profile updated successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
@@ -235,18 +267,28 @@ export default function ProfileScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <MaterialIcons name="calendar-today" size={20} color="#2C3D50" />
-              <Text style={styles.infoLabel}>Climbing Since</Text>
+              <Text style={styles.infoLabel}>Joined On</Text>
             </View>
-            <Text style={styles.infoValue}>{profile.climbingSince}</Text>
+            <Text style={styles.infoValue}>{formatJoinedDate(profile.joinedOn)}</Text>
           </View>
 
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <MaterialIcons name="grade" size={20} color="#2C3D50" />
-              <Text style={styles.infoLabel}>Favorite Grade</Text>
+              <Text style={styles.infoLabel}>Current Grade</Text>
             </View>
-            <Text style={styles.infoValue}>{profile.favoriteGrade}</Text>
+            <Text style={styles.infoValue}>{profile.currentGrade}</Text>
           </View>
+
+          {profile.height && (
+            <View style={styles.infoCard}>
+              <View style={styles.infoRow}>
+                <MaterialIcons name="height" size={20} color="#2C3D50" />
+                <Text style={styles.infoLabel}>Height</Text>
+              </View>
+              <Text style={styles.infoValue}>{profile.height}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.myPostsSection}>
@@ -291,7 +333,11 @@ export default function ProfileScreen() {
         animationType="slide"
         onRequestClose={cancelEdit}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={cancelEdit}>
@@ -303,7 +349,12 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+            <ScrollView
+              style={styles.modalScroll}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.modalScrollContent}
+            >
               {/* Profile Picture Edit */}
               <View style={styles.editSection}>
                 <Text style={styles.editLabel}>Profile Picture</Text>
@@ -374,40 +425,9 @@ export default function ProfileScreen() {
                 </View>
               </View>
 
-              {/* Climbing Since */}
+              {/* Current Grade */}
               <View style={styles.editSection}>
-                <Text style={styles.editLabel}>Climbing Since</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  style={styles.horizontalScroll}
-                >
-                  {yearOptions.map((year) => (
-                    <TouchableOpacity
-                      key={year}
-                      style={[
-                        styles.optionButton,
-                        styles.yearButton,
-                        editedProfile.climbingSince === year && styles.optionButtonActive,
-                      ]}
-                      onPress={() => setEditedProfile({ ...editedProfile, climbingSince: year })}
-                    >
-                      <Text
-                        style={[
-                          styles.optionText,
-                          editedProfile.climbingSince === year && styles.optionTextActive,
-                        ]}
-                      >
-                        {year}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Favorite Grade */}
-              <View style={styles.editSection}>
-                <Text style={styles.editLabel}>Favorite Grade</Text>
+                <Text style={styles.editLabel}>Current Grade</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -419,14 +439,14 @@ export default function ProfileScreen() {
                       style={[
                         styles.optionButton,
                         styles.gradeButton,
-                        editedProfile.favoriteGrade === grade && styles.optionButtonActive,
+                        editedProfile.currentGrade === grade && styles.optionButtonActive,
                       ]}
-                      onPress={() => setEditedProfile({ ...editedProfile, favoriteGrade: grade })}
+                      onPress={() => setEditedProfile({ ...editedProfile, currentGrade: grade })}
                     >
                       <Text
                         style={[
                           styles.optionText,
-                          editedProfile.favoriteGrade === grade && styles.optionTextActive,
+                          editedProfile.currentGrade === grade && styles.optionTextActive,
                         ]}
                       >
                         {grade}
@@ -435,9 +455,21 @@ export default function ProfileScreen() {
                   ))}
                 </ScrollView>
               </View>
+
+              {/* Height */}
+              <View style={styles.editSection}>
+                <Text style={styles.editLabel}>Height</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedProfile.height || ''}
+                  onChangeText={(text) => setEditedProfile({ ...editedProfile, height: text })}
+                  placeholder="e.g., 5'8, 173 cm"
+                  placeholderTextColor="#999"
+                />
+              </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -469,6 +501,7 @@ const styles = StyleSheet.create({
   },
   profilePictureContainer: {
     alignItems: 'center',
+    marginTop: 40,
     marginBottom: 16,
   },
   profilePicture: {
@@ -613,7 +646,10 @@ const styles = StyleSheet.create({
   },
   modalScroll: {
     paddingHorizontal: 20,
+  },
+  modalScrollContent: {
     paddingTop: 20,
+    paddingBottom: 40,
   },
   editSection: {
     marginBottom: 24,

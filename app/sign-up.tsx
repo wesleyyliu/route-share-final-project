@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import {
+    Alert,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 export default function SignUpScreen() {
   const router = useRouter();
@@ -34,9 +34,10 @@ export default function SignUpScreen() {
         username: trimmedUsername,
         bio: 'Just here to send it! 🧗',
         defaultGym: undefined,
-        climbingSince: '2025',
-        favoriteGrade: undefined,
+        joinedOn: new Date().toISOString(),
+        currentGrade: undefined,
         profilePicture: undefined,
+        height: undefined,
       };
       await AsyncStorage.setItem('user_profile', JSON.stringify(initialProfile));
 
