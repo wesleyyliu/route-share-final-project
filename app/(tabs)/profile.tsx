@@ -259,7 +259,7 @@ export default function ProfileScreen() {
           <View style={styles.infoCard}>
             <View style={styles.infoRow}>
               <MaterialIcons name="location-on" size={20} color="#2C3D50" />
-              <Text style={styles.infoLabel}>Default Gym</Text>
+              <Text style={styles.infoLabel}>Home Gym</Text>
             </View>
             <Text style={styles.infoValue}>{profile.defaultGym}</Text>
           </View>
@@ -399,9 +399,9 @@ export default function ProfileScreen() {
                 />
               </View>
 
-              {/* Default Gym */}
+              {/* Home Gym */}
               <View style={styles.editSection}>
-                <Text style={styles.editLabel}>Default Gym</Text>
+                <Text style={styles.editLabel}>Home Gym</Text>
                 <View style={styles.optionsContainer}>
                   {gymOptions.map((gym) => (
                     <TouchableOpacity

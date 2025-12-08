@@ -1,7 +1,7 @@
 import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { MaterialIcons } from '@expo/vector-icons';
 import { ResizeMode, Video } from 'expo-av';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 interface ActivityCardProps {
   username: string;
@@ -13,6 +13,7 @@ interface ActivityCardProps {
   avatar?: number | string;
   annotations?: LimbAnnotation[];
   onPress?: () => void;
+  onAvatarPress?: () => void;
 }
 
 export default function ActivityCard({
@@ -24,10 +25,31 @@ export default function ActivityCard({
   videoUri,
   avatar,
   onPress,
+  onAvatarPress,
 }: ActivityCardProps) {
+  const renderAvatar = () => {
+    if (avatar) {
+      return (
+        <Image
+          source={typeof avatar === 'string' ? { uri: avatar } : avatar}
+          style={styles.avatar}
+          resizeMode="cover"
+        />
+      );
+    }
+    return (
+      <View style={styles.avatarPlaceholder}>
+        <Text style={styles.avatarText}>
+          {username.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
+
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-      <View style={styles.videoThumbnail}>
+    <View style={styles.card}>
+      {/* Video thumbnail - tapping goes to post */}
+      <Pressable onPress={onPress} style={styles.videoThumbnail}>
         {typeof videoUri === 'string' ? (
           <Video
             source={{ uri: videoUri }}
@@ -43,43 +65,43 @@ export default function ActivityCard({
             shouldPlay={false}
           />
         )}
-      </View>
+      </Pressable>
 
       <View style={styles.content}>
+        {/* User row with separate touchable avatar */}
         <View style={styles.userRow}>
-          {avatar ? (
-            <Image
-              source={typeof avatar === 'string' ? { uri: avatar } : avatar}
-              style={styles.avatar}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarText}>
-                {username.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <Text style={styles.username}>{username}</Text>
+          <Pressable
+            onPress={onAvatarPress}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+          >
+            {renderAvatar()}
+          </Pressable>
+          <Pressable onPress={onPress} style={{ flex: 1 }}>
+            <Text style={styles.username}>{username}</Text>
+          </Pressable>
         </View>
 
-        <View style={styles.metadataRow}>
-          <MaterialIcons name="place" size={16} color="#6B7885" style={styles.metadataIcon} />
-          <Text style={styles.metadataText} numberOfLines={1}>
-            {location}
-          </Text>
-        </View>
+        {/* Metadata section - tapping goes to post */}
+        <Pressable onPress={onPress}>
+          <View style={styles.metadataRow}>
+            <MaterialIcons name="place" size={16} color="#6B7885" style={styles.metadataIcon} />
+            <Text style={styles.metadataText} numberOfLines={1}>
+              {location}
+            </Text>
+          </View>
 
-        <View style={styles.metadataRow}>
-          <MaterialIcons name="terrain" size={16} color="#6B7885" style={styles.metadataIcon} />
-          <Text style={styles.metadataText}>
-            {difficulty} {color}
-          </Text>
-        </View>
+          <View style={styles.metadataRow}>
+            <MaterialIcons name="terrain" size={16} color="#6B7885" style={styles.metadataIcon} />
+            <Text style={styles.metadataText}>
+              {difficulty} {color}
+            </Text>
+          </View>
 
-        <Text style={styles.timestamp}>{timestamp}</Text>
+          <Text style={styles.timestamp}>{timestamp}</Text>
+        </Pressable>
       </View>
-    </TouchableOpacity>
+    </View>
   );
 }
 

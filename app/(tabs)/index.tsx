@@ -1,11 +1,13 @@
 import ActivityCard from '@/components/ActivityCard';
 import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbPost } from '@/types/post';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -28,6 +30,56 @@ interface Post {
   avatar?: number | string;
   annotations?: LimbAnnotation[];
 }
+
+interface UserProfile {
+  username: string;
+  bio: string;
+  defaultGym: string;
+  profilePicture?: string | number;
+  joinedOn?: string;
+  currentGrade: string;
+  height?: string;
+}
+
+// Mock profile data for sample users
+const sampleProfiles: Record<string, UserProfile> = {
+  'Sarah_climbs': {
+    username: 'Sarah_climbs',
+    bio: 'Boulder enthusiast 🧗‍♀️ V7 crusher on the weekends. Love crimpy routes!',
+    defaultGym: 'Penn Campus Recreation',
+    profilePicture: require('../../assets/images/snoopy4.png'),
+    joinedOn: '2023-03-15T00:00:00.000Z',
+    currentGrade: 'V7',
+    height: "5'6\"",
+  },
+  'Alex123': {
+    username: 'Alex123',
+    bio: 'Working on my technique every day. Sloper specialist 💪',
+    defaultGym: 'Tufas Boulder Lounge',
+    profilePicture: require('../../assets/images/snoopy2.webp'),
+    joinedOn: '2023-06-20T00:00:00.000Z',
+    currentGrade: 'V4',
+    height: "5'10\"",
+  },
+  'Jordan Lee': {
+    username: 'Jordan Lee',
+    bio: 'Route setter appreciation account. Always looking for creative beta!',
+    defaultGym: 'Penn Campus Recreation',
+    profilePicture: require('../../assets/images/snoopy3.jpeg'),
+    joinedOn: '2022-11-01T00:00:00.000Z',
+    currentGrade: 'V9',
+    height: "6'0\"",
+  },
+  'MayaLovesClimbing': {
+    username: 'MayaLovesClimbing',
+    bio: 'Just vibing on the wall ✨ Movement regular. Love meeting new climbing buddies!',
+    defaultGym: 'Movement Callowhill',
+    profilePicture: require('../../assets/images/snoopy1.jpg'),
+    joinedOn: '2024-01-10T00:00:00.000Z',
+    currentGrade: 'V4',
+    height: "5'4\"",
+  },
+};
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -88,6 +140,8 @@ export default function HomeScreen() {
   const [posts, setPosts] = useState<Post[]>(defaultPosts);
   const [searchQuery, setSearchQuery] = useState('');
   const [userProfile, setUserProfile] = useState<{ username: string; profilePicture?: string } | null>(null);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<UserProfile | null>(null);
+  const [isProfileModalVisible, setIsProfileModalVisible] = useState(false);
   const colorOptions = [
     'All Colors',
     'Red',
@@ -228,6 +282,32 @@ export default function HomeScreen() {
     router.push({ pathname: '/(tabs)/post/[id]', params: { id: postId } });
   };
 
+  const handleAvatarPress = (username: string) => {
+    // Don't show modal if it's the current user's profile
+    if (userProfile && userProfile.username === username) {
+      // Navigate to their own profile tab instead
+      router.push('/(tabs)/profile');
+      return;
+    }
+
+    // Check if we have a sample profile for this user
+    const profile = sampleProfiles[username];
+    if (profile) {
+      setSelectedUserProfile(profile);
+      setIsProfileModalVisible(true);
+    }
+  };
+
+  const formatJoinedDate = (dateString?: string): string => {
+    if (!dateString) return 'Unknown';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch {
+      return 'Unknown';
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -347,6 +427,7 @@ export default function HomeScreen() {
             videoUri={post.videoUri || ''}
             avatar={post.avatar || ''}
             onPress={() => handlePostPress(post.id)}
+            onAvatarPress={() => handleAvatarPress(post.username)}
           />
         ))}
       </ScrollView>
@@ -430,6 +511,97 @@ export default function HomeScreen() {
           </View>
         </Modal>
       )}
+
+      {/* User Profile Modal */}
+      <Modal
+        visible={isProfileModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setIsProfileModalVisible(false)}
+      >
+        <View style={styles.profileModalOverlay}>
+          <View style={styles.profileModalContent}>
+            {/* Modal Header */}
+            <View style={styles.profileModalHeader}>
+              <TouchableOpacity onPress={() => setIsProfileModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#2C3D50" />
+              </TouchableOpacity>
+              <Text style={styles.profileModalTitle}>Profile</Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            {selectedUserProfile && (
+              <ScrollView style={styles.profileModalScroll} contentContainerStyle={styles.profileModalScrollContent}>
+                {/* Profile Picture */}
+                <View style={styles.profilePictureContainer}>
+                  {selectedUserProfile.profilePicture ? (
+                    <Image
+                      source={typeof selectedUserProfile.profilePicture === 'string'
+                        ? { uri: selectedUserProfile.profilePicture }
+                        : selectedUserProfile.profilePicture}
+                      style={styles.modalProfilePicture}
+                    />
+                  ) : (
+                    <View style={styles.modalProfilePicturePlaceholder}>
+                      <Text style={styles.modalProfilePictureText}>
+                        {selectedUserProfile.username.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Username */}
+                <Text style={styles.modalUsername}>{selectedUserProfile.username}</Text>
+
+                {/* Profile Information Cards */}
+                <View style={styles.profileInfoSection}>
+                  <View style={styles.profileInfoCard}>
+                    <View style={styles.profileInfoRow}>
+                      <MaterialIcons name="info" size={20} color="#2C3D50" />
+                      <Text style={styles.profileInfoLabel}>Bio</Text>
+                    </View>
+                    <Text style={styles.profileInfoValue}>{selectedUserProfile.bio || 'No bio yet'}</Text>
+                  </View>
+
+                  <View style={styles.profileInfoCard}>
+                    <View style={styles.profileInfoRow}>
+                      <MaterialIcons name="location-on" size={20} color="#2C3D50" />
+                      <Text style={styles.profileInfoLabel}>Home Gym</Text>
+                    </View>
+                    <Text style={styles.profileInfoValue}>{selectedUserProfile.defaultGym}</Text>
+                  </View>
+
+                  <View style={styles.profileInfoCard}>
+                    <View style={styles.profileInfoRow}>
+                      <MaterialIcons name="calendar-today" size={20} color="#2C3D50" />
+                      <Text style={styles.profileInfoLabel}>Joined On</Text>
+                    </View>
+                    <Text style={styles.profileInfoValue}>{formatJoinedDate(selectedUserProfile.joinedOn)}</Text>
+                  </View>
+
+                  <View style={styles.profileInfoCard}>
+                    <View style={styles.profileInfoRow}>
+                      <MaterialIcons name="grade" size={20} color="#2C3D50" />
+                      <Text style={styles.profileInfoLabel}>Current Grade</Text>
+                    </View>
+                    <Text style={styles.profileInfoValue}>{selectedUserProfile.currentGrade}</Text>
+                  </View>
+
+                  {selectedUserProfile.height && (
+                    <View style={styles.profileInfoCard}>
+                      <View style={styles.profileInfoRow}>
+                        <MaterialIcons name="height" size={20} color="#2C3D50" />
+                        <Text style={styles.profileInfoLabel}>Height</Text>
+                      </View>
+                      <Text style={styles.profileInfoValue}>{selectedUserProfile.height}</Text>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );
@@ -628,5 +800,100 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#E6E6E6',
     marginBottom: 12,
+  },
+  // Profile Modal Styles
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  profileModalContent: {
+    backgroundColor: '#F5F5F5',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '85%',
+    minHeight: '60%',
+  },
+  profileModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  profileModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2C3D50',
+  },
+  profileModalScroll: {
+    flex: 1,
+  },
+  profileModalScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  profilePictureContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalProfilePicture: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  modalProfilePicturePlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#2C3D50',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  modalProfilePictureText: {
+    fontSize: 40,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalUsername: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2C3D50',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  profileInfoSection: {
+    gap: 12,
+  },
+  profileInfoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+  },
+  profileInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    gap: 8,
+  },
+  profileInfoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C3D50',
+  },
+  profileInfoValue: {
+    fontSize: 16,
+    color: '#2C3D50',
+    marginLeft: 28,
   },
 });
