@@ -1,5 +1,6 @@
 import { LimbAnnotation } from '@/components/VideoAnnotation';
 import { ClimbPost } from '@/types/post';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ResizeMode, Video } from 'expo-av';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -237,11 +238,11 @@ export default function InteractiveView() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/post/[id]', params: { id: id! } })} style={styles.backIcon} activeOpacity={0.7}>
-            <Text style={styles.backIconText}>←</Text>
+            <MaterialIcons name="chevron-left" size={32} color="#fff" />
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Loading…</Text>
+          <Text style={{ fontFamily: 'Poppins_400Regular' }}>Loading…</Text>
         </View>
       </View>
     );
@@ -252,11 +253,11 @@ export default function InteractiveView() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/post/[id]', params: { id: id! } })} style={styles.backIcon} activeOpacity={0.7}>
-            <Text style={styles.backIconText}>←</Text>
+            <MaterialIcons name="chevron-left" size={32} color="#fff" />
           </TouchableOpacity>
         </View>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Post not found.</Text>
+          <Text style={{ fontFamily: 'Poppins_400Regular' }}>Post not found.</Text>
         </View>
       </View>
     );
@@ -275,7 +276,7 @@ export default function InteractiveView() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/post/[id]', params: { id: id! } })} style={styles.backIcon} activeOpacity={0.7}>
-          <Text style={styles.backIconText}>←</Text>
+          <MaterialIcons name="chevron-left" size={32} color="#fff" />
         </TouchableOpacity>
       </View>
 
@@ -341,7 +342,7 @@ export default function InteractiveView() {
                 style={{ padding: 6, marginBottom: 4 }}
                 disabled={holdScrollPosition <= 0}
               >
-                <Text style={{ fontSize: 18, color: holdScrollPosition > 0 ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>▲</Text>
+                <Text style={{ fontSize: 18, color: holdScrollPosition > 0 ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold', fontFamily: 'Poppins_700Bold' }}>▲</Text>
               </TouchableOpacity>
             )}
 
@@ -350,7 +351,7 @@ export default function InteractiveView() {
               ref={holdListScrollRef}
               showsVerticalScrollIndicator={false}
               style={{ maxHeight: 140, width: '100%' }}
-              contentContainerStyle={{ alignItems: 'center' }}
+              contentContainerStyle={{ alignItems: 'center', paddingTop: 38 }}
               scrollEventThrottle={16}
               onScroll={(event) => {
                 setHoldScrollPosition(event.nativeEvent.contentOffset.y);
@@ -383,10 +384,10 @@ export default function InteractiveView() {
                     borderColor: visibleHoldTimestamp === ts ? '#2C3D50' : '#E5E5E5',
                   }}
                 >
-                  <Text style={{ fontSize: 12, fontWeight: '600', color: visibleHoldTimestamp === ts ? '#FFF' : '#666', textAlign: 'center' }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: visibleHoldTimestamp === ts ? '#FFF' : '#666', textAlign: 'center', fontFamily: 'Poppins_700Bold' }}>
                     hold {idx + 1}
                   </Text>
-                  <Text style={{ fontSize: 10, color: visibleHoldTimestamp === ts ? '#E0E0E0' : '#999', textAlign: 'center', marginTop: 2 }}>
+                  <Text style={{ fontSize: 10, color: visibleHoldTimestamp === ts ? '#E0E0E0' : '#999', textAlign: 'center', marginTop: 2, fontFamily: 'Poppins_400Regular' }}>
                     {formatTime(ts)}
                   </Text>
                 </TouchableOpacity>
@@ -405,7 +406,7 @@ export default function InteractiveView() {
                 style={{ padding: 6, marginTop: 4 }}
                 disabled={holdScrollPosition >= Math.max(0, (uniqueTimestamps.length - 3) * 54)}
               >
-                <Text style={{ fontSize: 18, color: holdScrollPosition < Math.max(0, (uniqueTimestamps.length - 3) * 54) ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold' }}>▼</Text>
+                <Text style={{ fontSize: 18, color: holdScrollPosition < Math.max(0, (uniqueTimestamps.length - 3) * 54) ? '#2C3D50' : '#E0E0E0', fontWeight: 'bold', fontFamily: 'Poppins_700Bold' }}>▼</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -433,7 +434,7 @@ export default function InteractiveView() {
                       onPress={() => !isViewingAllHolds && hasComment && setSelectedLimb(key)}
                       disabled={isViewingAllHolds || !hasComment}
                     >
-                      <Text style={{ color: isViewingAllHolds ? '#BDBDBD' : (selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD')), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
+                      <Text style={{ color: isViewingAllHolds ? '#BDBDBD' : (selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD')), fontSize: 13, textAlign: 'center', fontFamily: 'Poppins_400Regular' }}>
                         {LIMB_LABELS[key]}
                       </Text>
                     </TouchableOpacity>
@@ -460,7 +461,7 @@ export default function InteractiveView() {
                       onPress={() => !isViewingAllHolds && hasComment && setSelectedLimb(key)}
                       disabled={isViewingAllHolds || !hasComment}
                     >
-                      <Text style={{ color: isViewingAllHolds ? '#BDBDBD' : (selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD')), fontWeight: '600', fontSize: 13, textAlign: 'center' }}>
+                      <Text style={{ color: isViewingAllHolds ? '#BDBDBD' : (selectedLimb === key ? (hasComment ? '#fff' : '#999') : (hasComment ? '#fff' : '#BDBDBD')), fontSize: 13, textAlign: 'center', fontFamily: 'Poppins_400Regular' }}>
                         {LIMB_LABELS[key]}
                       </Text>
                     </TouchableOpacity>
@@ -483,10 +484,10 @@ export default function InteractiveView() {
                 <View style={{ padding: 16, backgroundColor: `${holdColor}20`, borderRadius: 12, borderWidth: 1, borderColor: `${holdColor}80` }}>
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ fontWeight: '700', color: holdColor, fontSize: 14, marginBottom: 4 }}>
+                      <Text style={{ color: holdColor, fontSize: 14, marginBottom: 4, fontFamily: 'Poppins_400Regular' }}>
                         {LIMB_LABELS[selectedLimb]}
                       </Text>
-                      <Text style={{ color: '#2C3D50', fontSize: 14, lineHeight: 20 }}>
+                      <Text style={{ color: '#2C3D50', fontSize: 14, lineHeight: 20, fontFamily: 'Inter_400Regular' }}>
                         {commentsForSelected[0].comment}
                       </Text>
                     </View>
@@ -527,8 +528,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
-  backIconText: { color: '#fff', fontSize: 28, fontWeight: '600' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
+  backIconText: { color: '#fff', fontSize: 28, fontWeight: '600', fontFamily: 'Poppins_700Bold' },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8, fontFamily: 'Poppins_700Bold' },
   interactiveOverlay: {
     position: 'absolute',
     top: 0,

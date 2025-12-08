@@ -208,6 +208,7 @@ const styles = StyleSheet.create({
     color: '#333',
     paddingVertical: 16,
     paddingHorizontal: 12,
+    fontFamily: 'Inter_400Regular',
   },
   textInput: {
     flex: 1,
@@ -215,6 +216,7 @@ const styles = StyleSheet.create({
     color: '#333',
     paddingVertical: 16,
     paddingHorizontal: 12,
+    fontFamily: 'Inter_400Regular',
   },
   searchIconButton: {
     padding: 8,
@@ -259,14 +261,17 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: 16,
     color: '#333',
+    fontFamily: 'Inter_400Regular',
   },
   metadataPlaceholder: {
     fontSize: 16,
     color: '#999',
+    fontFamily: 'Inter_400Regular',
   },
   metadataValue: {
     fontSize: 16,
     color: '#333',
+    fontFamily: 'Inter_400Regular',
   },
   dropdownWrapper: {
     marginBottom: 16,

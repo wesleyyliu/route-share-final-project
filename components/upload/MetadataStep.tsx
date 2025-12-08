@@ -76,6 +76,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
+    fontFamily: 'Poppins_700Bold',
   },
   videoThumbnail: {
     width: '100%',
@@ -100,5 +101,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
   },
 });

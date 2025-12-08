@@ -109,8 +109,10 @@ export default function HomeScreen() {
   const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
   const colorBtnRef = useRef<any>(null);
   const gradeBtnRef = useRef<any>(null);
+  const gymBtnRef = useRef<any>(null);
   const [colorBtnLayout, setColorBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [gradeBtnLayout, setGradeBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [gymBtnLayout, setGymBtnLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   // Load posts from AsyncStorage when screen is focused
   useFocusEffect(
@@ -243,9 +245,21 @@ export default function HomeScreen() {
 
         <View style={styles.dropdownContainer}>
           <TouchableOpacity
+            ref={gymBtnRef}
             style={styles.dropdown}
             onPress={() => {
-              setGymDropdownOpen(!gymDropdownOpen);
+              if (gymDropdownOpen) {
+                setGymDropdownOpen(false);
+                return;
+              }
+              if (gymBtnRef.current && gymBtnRef.current.measureInWindow) {
+                gymBtnRef.current.measureInWindow((x: number, y: number, w: number, h: number) => {
+                  setGymBtnLayout({ x, y, width: w, height: h });
+                  setGymDropdownOpen(true);
+                });
+              } else {
+                setGymDropdownOpen(true);
+              }
               setColorDropdownOpen(false);
               setGradeDropdownOpen(false);
             }}
@@ -255,22 +269,6 @@ export default function HomeScreen() {
             <Text style={styles.caret}>{gymDropdownOpen ? '▲' : '▼'}</Text>
           </TouchableOpacity>
         </View>
-        {gymDropdownOpen && (
-          <View style={styles.dropdownOptions}>
-            {gyms.map((g) => (
-              <TouchableOpacity
-                key={g}
-                style={styles.dropdownOption}
-                onPress={() => {
-                  setSelectedGym(g);
-                  setGymDropdownOpen(false);
-                }}
-              >
-                <Text style={styles.dropdownOptionText}>{g}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
 
         <View style={styles.filterRow}>
           <View style={styles.filterColumn}>
@@ -395,6 +393,33 @@ export default function HomeScreen() {
                     onPress={() => {
                       setSelectedGrade(g);
                       setGradeDropdownOpen(false);
+                    }}
+                  >
+                    <Text style={styles.dropdownOptionText}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {gymDropdownOpen && (
+        <Modal transparent visible={gymDropdownOpen} onRequestClose={() => setGymDropdownOpen(false)}>
+          <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={() => setGymDropdownOpen(false)}>
+              <View style={{ flex: 1, backgroundColor: 'transparent' }} />
+            </TouchableWithoutFeedback>
+
+            <View style={{ position: 'absolute', top: (gymBtnLayout ? gymBtnLayout.y + gymBtnLayout.height + 4 : 100), left: (gymBtnLayout ? gymBtnLayout.x : 20), width: Math.max(gymBtnLayout ? gymBtnLayout.width : 180, 180) }}>
+              <ScrollView style={[styles.dropdownOptions, { maxHeight: 220 }]} contentContainerStyle={{ paddingVertical: 4 }} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
+                {gyms.map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={styles.dropdownOption}
+                    onPress={() => {
+                      setSelectedGym(g);
+                      setGymDropdownOpen(false);
                     }}
                   >
                     <Text style={styles.dropdownOptionText}>{g}</Text>

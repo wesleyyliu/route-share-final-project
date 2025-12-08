@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     textAlign: 'center',
+    fontFamily: 'Poppins_700Bold',
   },
   confirmVideoPreview: {
     marginBottom: 20,
@@ -118,6 +119,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#2C3D50',
+    fontFamily: 'Poppins_700Bold',
   },
   editButton: {
     flexDirection: 'row',
@@ -128,6 +130,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#FF6B35',
     fontWeight: '600',
+    fontFamily: 'Poppins_700Bold',
   },
   metadataRow: {
     flexDirection: 'row',
@@ -141,6 +144,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     flex: 1,
+    fontFamily: 'Inter_400Regular',
   },
   descriptionInput: {
     borderWidth: 1,
@@ -152,6 +156,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: 20,
     backgroundColor: '#F9F9F9',
+    fontFamily: 'Inter_400Regular',
   },
   postButton: {
     backgroundColor: '#FF6B35',
@@ -163,5 +168,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 18,
     fontWeight: 'bold',
+    fontFamily: 'Poppins_700Bold',
   },
 });

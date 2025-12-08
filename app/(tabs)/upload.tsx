@@ -7,6 +7,7 @@ import MetadataStep from '@/components/upload/MetadataStep';
 import SelectVideoStep from '@/components/upload/SelectVideoStep';
 import VideoAnnotation, { LimbAnnotation, VideoAnnotationHandle } from '@/components/VideoAnnotation';
 import { ClimbMetadata, ClimbPost } from '@/types/post';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
@@ -219,7 +220,7 @@ export default function VideoAnnotatorScreen() {
         {workflowStep === 'metadata' && videoUri && (
           <>
             <TouchableOpacity style={styles.backButton} onPress={resetWorkflow}>
-              <Text style={styles.backButtonText}>←</Text>
+              <MaterialIcons name="chevron-left" size={32} color="#2C3D50" />
             </TouchableOpacity>
 
             <MetadataStep
@@ -253,7 +254,7 @@ export default function VideoAnnotatorScreen() {
                 }
               }}
             >
-              <Text style={styles.backButtonText}>←</Text>
+              <MaterialIcons name="chevron-left" size={32} color="#2C3D50" />
             </TouchableOpacity>
 
             <View style={styles.videoContainerWithMargin}>
@@ -276,7 +277,7 @@ export default function VideoAnnotatorScreen() {
               style={styles.backButton}
               onPress={() => setWorkflowStep('annotate')}
             >
-              <Text style={styles.backButtonText}>←</Text>
+              <MaterialIcons name="chevron-left" size={32} color="#2C3D50" />
             </TouchableOpacity>
 
             <ConfirmationStep
@@ -364,6 +365,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#2C3D50',
     backgroundColor: 'transparent',
+    fontFamily: 'Poppins_700Bold',
   },
   instructions: {
     fontSize: 15,
@@ -371,5 +373,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 16,
     lineHeight: 22,
+    fontFamily: 'Inter_400Regular',
   },
 });

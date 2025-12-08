@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 import { View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { Poppins_400Regular, Poppins_700Bold } from '@expo-google-fonts/poppins';
+import { Inter_400Regular } from '@expo-google-fonts/inter';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function RootLayout() {
@@ -13,6 +14,7 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
     Poppins_700Bold,
+    Inter_400Regular,
   });
 
   return (

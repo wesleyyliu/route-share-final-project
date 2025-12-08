@@ -3,11 +3,10 @@ import { ClimbPost } from '@/types/post';
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Asset } from 'expo-asset';
-import { ResizeMode, Video } from 'expo-av';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Keyboard, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface PostLike {
   id: string;
@@ -87,8 +86,6 @@ export default function PostDetail() {
   const router = useRouter();
   const [post, setPost] = useState<PostLike | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showFullVideo, setShowFullVideo] = useState(false);
-  const screenWidth = Dimensions.get('window').width;
   const [showEntryOverlays, setShowEntryOverlays] = useState(true);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const [profilePicture, setProfilePicture] = useState<string | undefined>(undefined);
@@ -297,7 +294,7 @@ export default function PostDetail() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text>Loading…</Text>
+        <Text style={{ fontFamily: 'Poppins_400Regular' }}>Loading…</Text>
       </View>
     );
   }
@@ -305,7 +302,7 @@ export default function PostDetail() {
   if (!post) {
     return (
       <View style={styles.container}>
-        <Text>Post not found.</Text>
+        <Text style={{ fontFamily: 'Poppins_400Regular' }}>Post not found.</Text>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
@@ -401,7 +398,7 @@ export default function PostDetail() {
     >
       <View style={styles.header}>
         <TouchableOpacity onPress={handleBack} style={styles.backIcon} activeOpacity={0.7}>
-          <Text style={styles.backIconText}>←</Text>
+          <MaterialIcons name="chevron-left" size={32} color="#fff" />
         </TouchableOpacity>
         {isUserPost && (
           <TouchableOpacity
@@ -449,57 +446,56 @@ export default function PostDetail() {
         keyboardDismissMode="on-drag"
       >
         <View style={[styles.mediaCard, annotations.length === 0 && styles.mediaCardCentered]}>
-        <TouchableOpacity 
-          style={[styles.thumbWrapper, annotations.length === 0 && styles.thumbWrapperCentered]} 
-          onPress={() => setShowFullVideo(true)} 
-          activeOpacity={0.9}
-        >
-          <View style={styles.thumbPreview}>
-            {previewUri ? (
-              <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
-            ) : (
-              <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
-            )}
-            <View style={styles.playOverlay} pointerEvents="none">
-              <Text style={styles.playIcon}>▶</Text>
-            </View>
-          </View>
-          <Text style={styles.thumbCaption}>Click to view full video</Text>
-        </TouchableOpacity>
-
-        {annotations.length > 0 && (
-          <Link href={`/(tabs)/post/interactive/${id}`} asChild>
-            <TouchableOpacity
-              style={styles.thumbWrapper}
-              activeOpacity={0.9}
-            >
+        <View style={[styles.thumbWrapper, annotations.length === 0 && styles.thumbWrapperCentered]}>
+          <Link href={`/(tabs)/post/video/${id}`} asChild>
+            <TouchableOpacity activeOpacity={0.9}>
               <View style={styles.thumbPreview}>
                 {previewUri ? (
-                  <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="contain" />
+                  <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} />
                 ) : (
                   <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
                 )}
-                {showEntryOverlays && annotations.length > 0 && (
-                  <View style={styles.entryOverlay} pointerEvents="none">
-                    {annotations.map((a) => (
-                      <View
-                        key={`entry-${a.id}`}
-                        style={[
-                          styles.entryDot,
-                          {
-                            left: `${a.x}%`,
-                            top: `${a.y}%`,
-                            backgroundColor: getHoldColor(a.timestamp),
-                          },
-                        ]}
-                      />
-                    ))}
-                  </View>
-                )}
+                <View style={styles.playOverlay} pointerEvents="none">
+                  <Text style={styles.playIcon}>▶</Text>
+                </View>
               </View>
-              <Text style={styles.thumbCaption}>Click to view interactive path</Text>
             </TouchableOpacity>
           </Link>
+          <Text style={styles.thumbCaption}>Click to view full video</Text>
+        </View>
+
+        {annotations.length > 0 && (
+          <View style={styles.thumbWrapper}>
+            <Link href={`/(tabs)/post/interactive/${id}`} asChild>
+              <TouchableOpacity activeOpacity={0.9}>
+                <View style={styles.thumbPreview}>
+                  {previewUri ? (
+                    <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 12 }} resizeMode="contain" />
+                  ) : (
+                    <View style={{ width: '100%', height: '100%', borderRadius: 12, backgroundColor: '#000' }} />
+                  )}
+                  {showEntryOverlays && annotations.length > 0 && (
+                    <View style={styles.entryOverlay} pointerEvents="none">
+                      {annotations.map((a) => (
+                        <View
+                          key={`entry-${a.id}`}
+                          style={[
+                            styles.entryDot,
+                            {
+                              left: `${a.x}%`,
+                              top: `${a.y}%`,
+                              backgroundColor: getHoldColor(a.timestamp),
+                            },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </Link>
+            <Text style={styles.thumbCaption}>Click to view interactive path</Text>
+          </View>
         )}
       </View>
 
@@ -533,14 +529,20 @@ export default function PostDetail() {
       <View style={styles.metaCard}>
         {post.location && (
           <View style={styles.metaRow}>
-            <Text style={styles.metaIcon}>📍</Text>
+            <MaterialIcons name="location-on" size={20} color="#344154" style={{ marginRight: 8 }} />
             <Text style={styles.metaText}>{post.location}</Text>
           </View>
         )}
         {post.difficulty && (
           <View style={styles.metaRow}>
-            <Text style={styles.metaIcon}>🪨</Text>
-            <Text style={styles.metaText}>{post.difficulty} {post.color}</Text>
+            <MaterialIcons name="terrain" size={20} color="#344154" style={{ marginRight: 8 }} />
+            <Text style={styles.metaText}>{post.difficulty}</Text>
+          </View>
+        )}
+        {post.color && (
+          <View style={styles.metaRow}>
+            <MaterialIcons name="palette" size={20} color="#344154" style={{ marginRight: 8 }} />
+            <Text style={styles.metaText}>{post.color}</Text>
           </View>
         )}
       </View>
@@ -548,7 +550,7 @@ export default function PostDetail() {
       {/* Description */}
       {post.description && (
         <View style={{ paddingHorizontal: 20, marginTop: 12, marginBottom: 12 }}>
-          <Text style={{ fontSize: 14, color: '#555', lineHeight: 20 }}>{post.description}</Text>
+          <Text style={{ fontSize: 14, color: '#555', lineHeight: 20, fontFamily: 'Inter_400Regular' }}>{post.description}</Text>
         </View>
       )}
 
@@ -626,31 +628,6 @@ export default function PostDetail() {
       </View>
       </ScrollView>
 
-      {/* Full video modal */}
-      <Modal visible={showFullVideo} transparent animationType="slide" onRequestClose={() => setShowFullVideo(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { width: screenWidth - 40, maxHeight: '85%' }]}>
-            {/* Close button */}
-            <TouchableOpacity 
-              onPress={() => setShowFullVideo(false)} 
-              style={{ alignSelf: 'flex-end', padding: 12, marginBottom: 8, zIndex: 10 }}
-            >
-              <Text style={{ fontSize: 24, color: '#666' }}>✕</Text>
-            </TouchableOpacity>
-            <View style={{ width: '100%', height: 400, backgroundColor: '#000', borderRadius: 12, overflow: 'hidden' }}>
-              <Video
-                source={typeof post.videoUri === 'string' ? { uri: post.videoUri } : post.videoUri}
-                style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
-                useNativeControls
-                resizeMode={ResizeMode.CONTAIN}
-                isLooping
-                progressUpdateIntervalMillis={500}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
     </KeyboardAvoidingView>
   );
 }
@@ -661,62 +638,61 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 20 },
   header: { height: 80, backgroundColor: '#2C3D50', paddingTop: 24, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
-  backIconText: { color: '#fff', fontSize: 28, fontWeight: '600' },
+  backIconText: { color: '#fff', fontSize: 28, fontWeight: '600', fontFamily: 'Poppins_700Bold' },
   menuIcon: { padding: 12, minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-start', alignItems: 'flex-end', paddingTop: 80, paddingRight: 12 },
   menuDropdown: { backgroundColor: '#fff', borderRadius: 8, minWidth: 160, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
   menuOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 16, gap: 12 },
-  menuOptionTextDelete: { fontSize: 16, color: '#FF3B30', fontWeight: '500' },
+  menuOptionTextDelete: { fontSize: 16, color: '#FF3B30', fontWeight: '500', fontFamily: 'Poppins_700Bold' },
   backButton: { marginTop: 12 },
-  backButtonText: { color: '#2C3D50' },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8 },
+  backButtonText: { color: '#2C3D50', fontFamily: 'Poppins_400Regular' },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '600', marginLeft: 8, fontFamily: 'Poppins_700Bold' },
   contentRow: { flex: 1 },
   mediaCard: { backgroundColor: '#2F4050', margin: 20, borderRadius: 16, padding: 14, flexDirection: 'row', justifyContent: 'space-between' },
   mediaCardCentered: { justifyContent: 'center' },
   thumbWrapper: { width: '48%', alignItems: 'center' },
-  thumbWrapperCentered: { width: '100%' },
+  thumbWrapperCentered: { width: '70%' },
   thumbPreview: { width: '100%', aspectRatio: 3/4, backgroundColor: '#0f1720', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   playIcon: { color: '#fff', fontSize: 36, opacity: 0.95 },
   annotationDotsRow: { position: 'absolute', bottom: 10, left: 10, flexDirection: 'row', gap: 6 },
   dot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  thumbCaption: { color: '#DDEAF2', marginTop: 8, fontSize: 12 },
+  thumbCaption: { color: '#DDEAF2', marginTop: 8, fontSize: 12, fontFamily: 'Poppins_400Regular', textAlign: 'center' },
   leftColumn: { paddingHorizontal: 12 },
   rightColumn: { padding: 12 },
   video: { width: '100%', height: 300, backgroundColor: '#000', borderRadius: 12, overflow: 'hidden' },
-  metaTitle: { fontSize: 20, fontWeight: '700', marginBottom: 12 },
-  noAnnotations: { color: '#666' },
+  metaTitle: { fontSize: 20, fontWeight: '700', marginBottom: 12, fontFamily: 'Poppins_700Bold' },
+  noAnnotations: { color: '#666', fontFamily: 'Poppins_400Regular' },
   annotationRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
   limbDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10, marginTop: 6 },
-  annotationLabel: { fontSize: 16, fontWeight: '600' },
-  annotationMeta: { fontSize: 14, color: '#666' },
+  annotationLabel: { fontSize: 16, fontWeight: '600', fontFamily: 'Poppins_700Bold' },
+  annotationMeta: { fontSize: 14, color: '#666', fontFamily: 'Poppins_400Regular' },
   userRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 8 },
   avatar: { width: 48, height: 48, borderRadius: 24, overflow: 'hidden' },
   avatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#2C3D50', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold' },
-  username: { fontSize: 18, fontWeight: '700', color: '#111' },
-  smallTimestamp: { color: '#888', marginTop: 4 },
+  avatarText: { color: '#FFFFFF', fontSize: 20, fontWeight: 'bold', fontFamily: 'Poppins_700Bold' },
+  username: { fontSize: 18, fontWeight: '700', color: '#111', fontFamily: 'Poppins_700Bold' },
+  smallTimestamp: { color: '#888', marginTop: 4, fontFamily: 'Poppins_400Regular' },
   metaCard: { backgroundColor: '#fff', marginHorizontal: 20, marginTop: 12, borderRadius: 12, padding: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  metaIcon: { marginRight: 8 },
-  metaText: { color: '#344154' },
+  metaText: { color: '#344154', fontFamily: 'Poppins_400Regular' },
   commentsSection: { marginTop: 18, paddingHorizontal: 20, flex: 1 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12, fontFamily: 'Poppins_700Bold' },
   commentInputContainer: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 16, gap: 8 },
   commentAvatar: { width: 32, height: 32, borderRadius: 16, overflow: 'hidden' },
   commentAvatarPlaceholder: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2C3D50', justifyContent: 'center', alignItems: 'center' },
-  commentAvatarText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
-  commentInput: { flex: 1, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, maxHeight: 100, backgroundColor: '#F9F9F9' },
+  commentAvatarText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold', fontFamily: 'Poppins_700Bold' },
+  commentInput: { flex: 1, borderWidth: 1, borderColor: '#E0E0E0', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, maxHeight: 100, backgroundColor: '#F9F9F9', fontFamily: 'Poppins_400Regular' },
   commentButton: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#2C3D50', justifyContent: 'center' },
   commentButtonDisabled: { backgroundColor: '#E0E0E0' },
-  commentButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  commentButtonTextDisabled: { color: '#999' },
+  commentButtonText: { color: '#fff', fontWeight: '600', fontSize: 14, fontFamily: 'Poppins_700Bold' },
+  commentButtonTextDisabled: { color: '#999', fontFamily: 'Poppins_700Bold' },
   commentsList: { flex: 1 },
   commentItem: { flexDirection: 'row', marginBottom: 16, gap: 10 },
   commentContent: { flex: 1 },
   commentHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, gap: 8 },
-  commentUsername: { fontSize: 14, fontWeight: '600', color: '#111' },
-  commentTime: { fontSize: 12, color: '#999' },
-  commentText: { fontSize: 14, color: '#333', lineHeight: 20 },
+  commentUsername: { fontSize: 14, fontWeight: '600', color: '#111', fontFamily: 'Poppins_700Bold' },
+  commentTime: { fontSize: 12, color: '#999', fontFamily: 'Poppins_400Regular' },
+  commentText: { fontSize: 14, color: '#333', lineHeight: 20, fontFamily: 'Poppins_400Regular' },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)' },
   modalContent: { backgroundColor: '#fff', borderRadius: 12, padding: 12 },
   modalClose: { alignSelf: 'flex-end', padding: 8 },

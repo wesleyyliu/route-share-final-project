@@ -66,6 +66,16 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="post/video/[id]"
+        options={{
+          title: 'Video',
+          href: null, // Hide from tab bar but keep accessible via navigation
+          tabBarIcon: ({ color, size }) => (
+            <MaterialIcons name="play-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
